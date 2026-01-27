@@ -39,12 +39,21 @@ HESITATION_MAX = 0.25
 # =========================
 # INVENTORY MANAGEMENT
 # =========================
-INVENTORY_X_START = 1654
-INVENTORY_X_END = 1852
-INVENTORY_Y_START = 666
-INVENTORY_Y_END = 969
+INVENTORY_X_START = 1636
+INVENTORY_X_END = 1873
+INVENTORY_Y_START = 652
+INVENTORY_Y_END = 978
 INVENTORY_ROWS = 7
 INVENTORY_COLS = 4
+
+# Inventory margins (pixels)
+INVENTORY_OUTER_MARGIN_X = 12  # total horizontal outer margin (6px each side)
+INVENTORY_OUTER_MARGIN_Y = 6   # total vertical outer margin (3px each side)
+INVENTORY_ITEM_PADDING_X = 6   # padding on each side of item (left AND right)
+INVENTORY_ITEM_PADDING_Y = 3   # padding on each side of item (top AND bottom)
+
+# Sample size for inventory detection (small center region)
+INVENTORY_SAMPLE_SIZE = 14     # pixels to sample from center of each cell
 
 # Inventory templates
 RESOURCE_TEMPLATE_PATH = "resource.png"

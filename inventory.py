@@ -41,13 +41,32 @@ def load_inventory_templates() -> tuple[np.ndarray, np.ndarray]:
     return resource_template, bg_template
 
 
-def compute_cell_dimensions() -> tuple[int, int]:
-    """Calculate the dimensions of each inventory cell."""
+def compute_item_dimensions() -> tuple[int, int]:
+    """Calculate the dimensions of the actual item content (without padding)."""
     total_width = config.INVENTORY_X_END - config.INVENTORY_X_START
     total_height = config.INVENTORY_Y_END - config.INVENTORY_Y_START
 
-    cell_width = total_width // config.INVENTORY_COLS
-    cell_height = total_height // config.INVENTORY_ROWS
+    # Total padding: each item has padding on both sides
+    total_padding_x = config.INVENTORY_COLS * (config.INVENTORY_ITEM_PADDING_X * 2)
+    total_padding_y = config.INVENTORY_ROWS * (config.INVENTORY_ITEM_PADDING_Y * 2)
+
+    # Usable space = total - outer margins - all item padding
+    items_width = total_width - config.INVENTORY_OUTER_MARGIN_X - total_padding_x
+    items_height = total_height - config.INVENTORY_OUTER_MARGIN_Y - total_padding_y
+
+    item_width = items_width // config.INVENTORY_COLS
+    item_height = items_height // config.INVENTORY_ROWS
+
+    return item_width, item_height
+
+
+def compute_cell_dimensions() -> tuple[int, int]:
+    """Calculate the dimensions of each inventory cell (item + its padding)."""
+    item_width, item_height = compute_item_dimensions()
+
+    # Cell = item + padding on each side
+    cell_width = item_width + (config.INVENTORY_ITEM_PADDING_X * 2)
+    cell_height = item_height + (config.INVENTORY_ITEM_PADDING_Y * 2)
 
     return cell_width, cell_height
 
@@ -56,19 +75,29 @@ def get_cell_bounds(row: int, col: int) -> tuple[int, int, int, int]:
     """Get the screen coordinates for a cell (x, y, width, height)."""
     cell_width, cell_height = compute_cell_dimensions()
 
-    x = config.INVENTORY_X_START + (col * cell_width)
-    y = config.INVENTORY_Y_START + (row * cell_height)
+    # Outer margin is split on each side
+    outer_margin_x = config.INVENTORY_OUTER_MARGIN_X // 2
+    outer_margin_y = config.INVENTORY_OUTER_MARGIN_Y // 2
+
+    x = config.INVENTORY_X_START + outer_margin_x + (col * cell_width)
+    y = config.INVENTORY_Y_START + outer_margin_y + (row * cell_height)
 
     return x, y, cell_width, cell_height
 
 
 def grab_inventory_region(sct: mss, monitor: dict) -> np.ndarray:
-    """Capture the inventory region of the screen."""
+    """Capture the inventory region of the screen (usable area without outer margins)."""
+    outer_margin_x = config.INVENTORY_OUTER_MARGIN_X // 2
+    outer_margin_y = config.INVENTORY_OUTER_MARGIN_Y // 2
+
+    total_width = config.INVENTORY_X_END - config.INVENTORY_X_START
+    total_height = config.INVENTORY_Y_END - config.INVENTORY_Y_START
+
     region = {
-        "left": monitor["left"] + config.INVENTORY_X_START,
-        "top": monitor["top"] + config.INVENTORY_Y_START,
-        "width": config.INVENTORY_X_END - config.INVENTORY_X_START,
-        "height": config.INVENTORY_Y_END - config.INVENTORY_Y_START,
+        "left": monitor["left"] + config.INVENTORY_X_START + outer_margin_x,
+        "top": monitor["top"] + config.INVENTORY_Y_START + outer_margin_y,
+        "width": total_width - config.INVENTORY_OUTER_MARGIN_X,
+        "height": total_height - config.INVENTORY_OUTER_MARGIN_Y,
     }
     screenshot = np.array(sct.grab(region))
     return screenshot[:, :, :3]
@@ -79,13 +108,24 @@ def extract_cell_image(
     row: int,
     col: int,
 ) -> np.ndarray:
-    """Extract a single cell from the inventory frame."""
+    """Extract a small center sample from a cell."""
     cell_width, cell_height = compute_cell_dimensions()
+    sample_size = config.INVENTORY_SAMPLE_SIZE
 
-    x_start = col * cell_width
-    y_start = row * cell_height
-    x_end = x_start + cell_width
-    y_end = y_start + cell_height
+    # Calculate cell position in the inventory frame
+    cell_x = col * cell_width
+    cell_y = row * cell_height
+
+    # Calculate center of the cell
+    center_x = cell_x + cell_width // 2
+    center_y = cell_y + cell_height // 2
+
+    # Extract small region from center
+    half_sample = sample_size // 2
+    x_start = center_x - half_sample
+    y_start = center_y - half_sample
+    x_end = x_start + sample_size
+    y_end = y_start + sample_size
 
     cell = inventory_frame[y_start:y_end, x_start:x_end]
     return cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
@@ -95,18 +135,15 @@ def match_cell_against_template(
     cell_gray: np.ndarray,
     template: np.ndarray,
 ) -> float:
-    """Match a cell against a template, return confidence score."""
-    # Resize template to match cell size if needed
+    """Match a cell sample against a template, return confidence score."""
     cell_h, cell_w = cell_gray.shape[:2]
     tmpl_h, tmpl_w = template.shape[:2]
 
-    if tmpl_h > cell_h or tmpl_w > cell_w:
-        # Template is larger than cell, resize template
-        scale = min(cell_h / tmpl_h, cell_w / tmpl_w) * 0.9
-        new_w = int(tmpl_w * scale)
-        new_h = int(tmpl_h * scale)
-        template = cv2.resize(template, (new_w, new_h))
+    # Resize template to match sample size if needed
+    if tmpl_h != cell_h or tmpl_w != cell_w:
+        template = cv2.resize(template, (cell_w, cell_h))
 
+    # Direct pixel comparison using normalized correlation
     result = cv2.matchTemplate(cell_gray, template, cv2.TM_CCOEFF_NORMED)
     _, max_val, _, _ = cv2.minMaxLoc(result)
     return max_val
@@ -177,15 +214,24 @@ def analyze_inventory(
 
 def compute_random_click_position(cell: InventoryCell) -> tuple[int, int]:
     """
-    Compute a random click position within the cell.
-    Stays away from edges for safety.
+    Compute a random click position within the actual item area.
+    Accounts for item padding and adds extra safety margin.
     """
-    margin_x = max(5, cell.width // 6)
-    margin_y = max(5, cell.height // 6)
+    # Item padding on each side
+    padding_x = config.INVENTORY_ITEM_PADDING_X
+    padding_y = config.INVENTORY_ITEM_PADDING_Y
 
-    # Random position within the safe area
-    x = cell.x + margin_x + random.randint(0, cell.width - 2 * margin_x)
-    y = cell.y + margin_y + random.randint(0, cell.height - 2 * margin_y)
+    # Add a small extra safety margin inside the item
+    safety = 3
+    total_margin_x = padding_x + safety
+    total_margin_y = padding_y + safety
+
+    # Random position within the safe item area
+    safe_width = cell.width - (2 * total_margin_x)
+    safe_height = cell.height - (2 * total_margin_y)
+
+    x = cell.x + total_margin_x + random.randint(0, max(0, safe_width))
+    y = cell.y + total_margin_y + random.randint(0, max(0, safe_height))
 
     return x, y
 
