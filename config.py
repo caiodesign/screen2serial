@@ -8,10 +8,10 @@ BAUD_RATE = 9600
 # =========================
 # DETECTION REGION
 # =========================
-CENTER_X = 364
-CENTER_Y = 201
-CROP_SIZE = 200  # Must be larger than template (100x100). Increased from 100 to allow template matching.
-Y_MARGIN = 30
+REGION_X_START = 0
+REGION_X_END = 1575
+REGION_Y_START = 30
+REGION_Y_END = 827
 
 # =========================
 # MATCHING

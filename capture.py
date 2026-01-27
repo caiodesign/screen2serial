@@ -45,18 +45,23 @@ def grab_screen(sct: mss, monitor: dict) -> np.ndarray:
     return screenshot[:, :, :3]
 
 
-def crop_frame(
-    frame: np.ndarray,
-    center_x: int,
-    center_y: int,
-    crop_size: int,
+def grab_region(
+    sct: mss,
+    monitor: dict,
+    x_start: int,
+    y_start: int,
+    x_end: int,
+    y_end: int,
 ) -> np.ndarray:
-    """Crop a square region around the center point."""
-    half = crop_size // 2
-    return frame[
-        center_y - half : center_y + half,
-        center_x - half : center_x + half,
-    ]
+    """Capture a specific region of the screen."""
+    region = {
+        "left": monitor["left"] + x_start,
+        "top": monitor["top"] + y_start,
+        "width": x_end - x_start,
+        "height": y_end - y_start,
+    }
+    screenshot = np.array(sct.grab(region))
+    return screenshot[:, :, :3]  # Remove alpha channel
 
 
 def preprocess_crop(crop: np.ndarray) -> np.ndarray:
@@ -125,31 +130,84 @@ def save_match_debug(
     print(f"[DEBUG] Best match at: {max_loc}, confidence: {confidence:.4f}, threshold: {threshold}")
 
 
-def compute_target_y(center_y: int, crop_size: int, y_margin: int) -> int:
-    """Calculate the target Y coordinate for clicking."""
-    return center_y + (crop_size // 2) + y_margin
-
-
-def validate_template_size(template: np.ndarray, crop_size: int) -> None:
+def validate_template_size(template: np.ndarray, region_width: int, region_height: int) -> None:
     """
-    Validate that template is smaller than crop size.
+    Validate that template is smaller than the capture region.
     Template matching requires the template to be smaller than the search area.
     """
     tmpl_h, tmpl_w = template.shape[:2]
 
-    if tmpl_w >= crop_size or tmpl_h >= crop_size:
+    if tmpl_w >= region_width or tmpl_h >= region_height:
         raise RuntimeError(
-            f"CRITICAL: Template ({tmpl_w}x{tmpl_h}) must be smaller than crop size ({crop_size}x{crop_size})! "
-            f"Template matching cannot work if template >= search area. "
-            f"Either:\n"
-            f"  1. Increase CROP_SIZE in config.py (recommended: at least {max(tmpl_w, tmpl_h) + 50})\n"
-            f"  2. Use a smaller template image"
+            f"CRITICAL: Template ({tmpl_w}x{tmpl_h}) must be smaller than region ({region_width}x{region_height})! "
+            f"Template matching cannot work if template >= search area."
         )
 
-    # Warn if template is close to crop size (less room for matching)
-    margin = min(crop_size - tmpl_w, crop_size - tmpl_h)
-    if margin < 20:
-        print(f"[WARNING] Template ({tmpl_w}x{tmpl_h}) is very close to crop size ({crop_size}x{crop_size}). "
-              f"Only {margin}px margin for movement. Consider increasing CROP_SIZE for better detection.")
-    else:
-        print(f"[INFO] Template size: {tmpl_w}x{tmpl_h}, Crop size: {crop_size}x{crop_size}, Margin: {margin}px")
+    print(f"[INFO] Template size: {tmpl_w}x{tmpl_h}, Region size: {region_width}x{region_height}")
+
+
+def draw_match_on_frame(
+    frame: np.ndarray,
+    template: np.ndarray,
+    match_result,
+    threshold: float,
+) -> np.ndarray:
+    """Draw the match location on the frame."""
+    output = frame.copy()
+    h, w = template.shape[:2]
+    top_left = match_result.max_loc
+    bottom_right = (top_left[0] + w, top_left[1] + h)
+    
+    # Green if matched, red if not
+    color = (0, 255, 0) if match_result.confidence >= threshold else (0, 0, 255)
+    cv2.rectangle(output, top_left, bottom_right, color, 2)
+    
+    # Add confidence text
+    text = f"Conf: {match_result.confidence:.3f}"
+    cv2.putText(output, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    
+    return output
+
+
+def show_live_windows(
+    gray_frame: np.ndarray,
+    template: np.ndarray,
+    match_result,
+    threshold: float,
+) -> bool:
+    """
+    Show live windows with the captured frame and template.
+    Returns False if 'q' was pressed to quit.
+    """
+    # Draw match location on frame
+    frame_with_match = draw_match_on_frame(
+        cv2.cvtColor(gray_frame, cv2.COLOR_GRAY2BGR),
+        template,
+        match_result,
+        threshold,
+    )
+    
+    # Scale down if frame is too large for display
+    max_display_height = 600
+    scale = 1.0
+    if frame_with_match.shape[0] > max_display_height:
+        scale = max_display_height / frame_with_match.shape[0]
+        frame_with_match = cv2.resize(frame_with_match, None, fx=scale, fy=scale)
+    
+    # Show the captured region with match rectangle
+    cv2.imshow("Captured Region (Gray)", frame_with_match)
+    
+    # Show the template (scaled up for visibility if small)
+    template_display = cv2.cvtColor(template, cv2.COLOR_GRAY2BGR)
+    if template.shape[0] < 200:
+        scale_factor = 200 / template.shape[0]
+        template_display = cv2.resize(template_display, None, fx=scale_factor, fy=scale_factor, interpolation=cv2.INTER_NEAREST)
+    cv2.imshow("Template (Gray)", template_display)
+    
+    # Check for 'q' key to quit
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
+        cv2.destroyAllWindows()
+        return False
+    
+    return True

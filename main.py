@@ -21,24 +21,18 @@ from state import (
 from capture import (
     load_template,
     create_screen_capturer,
-    grab_screen,
-    crop_frame,
+    grab_region,
     preprocess_crop,
     match_template,
     MatchResult,
-    compute_target_y,
-    save_match_debug,
     validate_template_size,
+    show_live_windows,
 )
 from serial_io import (
     open_serial,
     send_move,
     send_click,
     compute_hesitation,
-)
-from debug import (
-    ensure_debug_dir,
-    should_save_debug,
 )
 
 
@@ -79,12 +73,21 @@ def handle_starting(
     match_result: MatchResult,
     now: float,
     ser,
+    template_h: int,
+    template_w: int,
 ) -> tuple[AppState, Stats]:
-    """Handle STARTING state - move and click."""
+    """Handle STARTING state - move and click at the matched location."""
     mx, my = pyautogui.position()
-    target_y = compute_target_y(config.CENTER_Y, config.CROP_SIZE, config.Y_MARGIN)
-
-    dx = config.CENTER_X - mx
+    
+    # Calculate target position based on match location + region offset
+    # match_result.max_loc is relative to the captured region
+    match_x, match_y = match_result.max_loc
+    
+    # Target is center of the matched area, offset by the region start coordinates
+    target_x = config.REGION_X_START + match_x + (template_w // 2)
+    target_y = config.REGION_Y_START + match_y + (template_h // 2)
+    
+    dx = target_x - mx
     dy = target_y - my
 
     send_move(ser, dx, dy)
@@ -139,6 +142,8 @@ def process_state_machine(
     match_result: MatchResult,
     now: float,
     ser,
+    template_h: int,
+    template_w: int,
 ) -> tuple[AppState, Stats]:
     """Process state machine and return new state and stats."""
     matched = match_result.matched
@@ -148,7 +153,7 @@ def process_state_machine(
     elif state.name == VERIFY:
         return handle_verify(state, stats, matched, now)
     elif state.name == STARTING:
-        return handle_starting(state, stats, match_result, now, ser)
+        return handle_starting(state, stats, match_result, now, ser, template_h, template_w)
     elif state.name == COLLECTING:
         return handle_collecting(state, stats, matched, now)
     elif state.name == COOLDOWN:
@@ -159,14 +164,15 @@ def process_state_machine(
 
 def main() -> None:
     """Main entry point."""
-    # Initialize
-    if config.DEBUG:
-        ensure_debug_dir(config.DEBUG_DIR)
-
     template = load_template(config.TEMPLATE_PATH)
+    template_h, template_w = template.shape[:2]
 
-    # Validate template size vs crop size (critical for matching to work)
-    validate_template_size(template, config.CROP_SIZE)
+    # Calculate region dimensions
+    region_width = config.REGION_X_END - config.REGION_X_START
+    region_height = config.REGION_Y_END - config.REGION_Y_START
+
+    # Validate template size vs region size (critical for matching to work)
+    validate_template_size(template, region_width, region_height)
 
     sct, monitor = create_screen_capturer()
     ser = open_serial(config.SERIAL_PORT, config.BAUD_RATE)
@@ -175,7 +181,9 @@ def main() -> None:
     stats = make_initial_stats()
     last_loop_time = time.time()
 
-    print("Started detection loop")
+    print(f"Region: ({config.REGION_X_START}, {config.REGION_Y_START}) to ({config.REGION_X_END}, {config.REGION_Y_END})")
+    print(f"Region size: {region_width}x{region_height}")
+    print("Started detection loop - Press 'q' in the window to quit")
     print(f"Initial state: {state.name}")
 
     while True:
@@ -186,28 +194,26 @@ def main() -> None:
         stats = accumulate_state_time(stats, state.name, delta)
         last_loop_time = now
 
-        # Capture and match
-        frame = grab_screen(sct, monitor)
-        crop = crop_frame(frame, config.CENTER_X, config.CENTER_Y, config.CROP_SIZE)
-        gray = preprocess_crop(crop)
+        # Capture the region
+        frame = grab_region(
+            sct, monitor,
+            config.REGION_X_START, config.REGION_Y_START,
+            config.REGION_X_END, config.REGION_Y_END,
+        )
+        gray = preprocess_crop(frame)
         match_result = match_template(gray, template, config.MATCH_THRESHOLD)
 
-        print(f"[{state.name}] confidence={match_result.confidence:.3f}")
+        print(f"[{state.name}] confidence={match_result.confidence:.3f} at {match_result.max_loc}")
 
-        # Debug captures - save detailed match debug when not matching
-        if should_save_debug(config.DEBUG, config.DEBUG_SAVE_MODE, match_result.matched):
-            save_match_debug(
-                config.DEBUG_DIR,
-                match_result.gray,
-                template,
-                match_result.result,
-                match_result.confidence,
-                match_result.max_loc,
-                config.MATCH_THRESHOLD,
-            )
+        # Show live windows with captured region and template
+        if not show_live_windows(gray, template, match_result, config.MATCH_THRESHOLD):
+            print("Quitting...")
+            break
 
         # State machine
-        state, stats = process_state_machine(state, stats, match_result, now, ser)
+        state, stats = process_state_machine(
+            state, stats, match_result, now, ser, template_h, template_w
+        )
 
         # Periodic stats log
         if int(now) % 30 == 0:
