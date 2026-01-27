@@ -87,7 +87,7 @@ def handle_starting(
     # Target is center of the matched area, offset by the region start coordinates
     # Add 30 pixels below to avoid mouse entering the detection zone
     target_x = config.REGION_X_START + match_x + (template_w // 2)
-    target_y = config.REGION_Y_START + match_y + (template_h // 2) + 30
+    target_y = config.REGION_Y_START + match_y + (template_h // 2) + 100
     
     dx = target_x - mx
     dy = target_y - my
@@ -205,12 +205,13 @@ def main() -> None:
         gray = preprocess_crop(frame)
         match_result = match_template(gray, template, config.MATCH_THRESHOLD)
 
-        print(f"[{state.name}] confidence={match_result.confidence:.3f} at {match_result.max_loc}")
+        if config.DEBUG:
+            print(f"[{state.name}] confidence={match_result.confidence:.3f} at {match_result.max_loc}")
 
-        # Show live windows with captured region and template
-        if not show_live_windows(gray, template, match_result, config.MATCH_THRESHOLD):
-            print("Quitting...")
-            break
+            # Show live windows with captured region and template
+            if not show_live_windows(gray, template, match_result, config.MATCH_THRESHOLD):
+                print("Quitting...")
+                break
 
         # State machine
         state, stats = process_state_machine(
