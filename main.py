@@ -205,21 +205,27 @@ def handle_dropping(
     # Drop each item
     dropped_count = 0
     for item in sorted_items:
-        # Move to item position and shift+click
+        # Wait before moving to next item (human-like delay)
+        if dropped_count > 0:
+            time.sleep(config.DROP_MOVE_DELAY)
+        
+        # Move to item position
         mx, my = pyautogui.position()
         dx = item.x - mx
         dy = item.y - my
         
         send_move(ser, dx, dy)
-        time.sleep(0.05)  # Small delay for mouse to arrive
-        send_shift_click(ser, item.x, item.y)
+        time.sleep(0.1)  # Small delay for mouse to arrive
+        
+        # Shift+click to drop
+        send_shift_click(ser)
         
         dropped_count += 1
         
         if config.DEBUG:
             print(f"[DROPPING] Dropped item {dropped_count}/{len(sorted_items)} at ({item.x}, {item.y})")
         
-        # Wait before next drop
+        # Small delay after click
         time.sleep(config.DROP_CLICK_DELAY)
     
     print(f"[DROPPING] Dropped {dropped_count} items - Back to searching")

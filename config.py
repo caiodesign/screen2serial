@@ -47,7 +47,8 @@ INVENTORY_RESOURCE_THRESHOLD = 0.70  # similarity threshold for resource detecti
 # =========================
 # DROPPING
 # =========================
-DROP_CLICK_DELAY = 0.3  # Delay between each shift+click when dropping items
+DROP_MOVE_DELAY = 2.0    # Delay before moving to the next item (seconds)
+DROP_CLICK_DELAY = 0.1   # Delay after clicking before moving to next item
 
 # =========================
 # KEYBOARD CONTROLS

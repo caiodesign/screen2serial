@@ -24,9 +24,9 @@ def send_click(ser: serial.Serial) -> None:
     ser.write(b"L\n")
 
 
-def send_shift_click(ser: serial.Serial, x: int, y: int) -> None:
-    """Send shift+left click command at absolute position."""
-    ser.write(f"SL{x},{y}\n".encode())
+def send_shift_click(ser: serial.Serial) -> None:
+    """Send shift+left click command at current mouse position."""
+    ser.write(b"SL\n")
 
 
 def compute_hesitation(
