@@ -7,6 +7,7 @@ State machine:
 """
 
 import time
+import random
 import numpy as np
 import pyautogui
 from pynput import keyboard
@@ -128,6 +129,9 @@ def handle_searching(
         )
         time.sleep(hesitation)
         
+        # Click twice for reliability
+        send_click(ser)
+        time.sleep(random.uniform(0.12, 0.25))  # Random human-like delay
         send_click(ser)
         
         return (
@@ -217,7 +221,9 @@ def handle_dropping(
         send_move(ser, dx, dy)
         time.sleep(0.1)  # Small delay for mouse to arrive
         
-        # Shift+click to drop
+        # Shift+click to drop (send twice for reliability)
+        send_shift_click(ser)
+        time.sleep(random.uniform(0.05, 0.15))  # Random human-like delay
         send_shift_click(ser)
         
         dropped_count += 1
