@@ -155,6 +155,16 @@ def handle_dropping(
     """Handle DROPPING state - drop all resources from inventory."""
     inventory_state = analyze_inventory(sct, monitor, bg_template, resource_template)
 
+    # Count cells with items (even if not identified as resources)
+    cells_with_items = sum(1 for c in inventory_state.cells if c.has_item)
+
+    print(f"[INVENTORY] Cells with items: {cells_with_items}, Resources identified: {len(inventory_state.resource_cells)}")
+
+    if not inventory_state.resource_cells:
+        # No resources found - likely a detection issue. Go to cooldown to avoid infinite loop.
+        print("[INVENTORY] No resources to drop! Possible detection issue. Entering cooldown.")
+        return transition_state(state, now, COOLDOWN), stats
+
     print(f"[INVENTORY] Dropping {len(inventory_state.resource_cells)} resource(s)...")
 
     for cell in inventory_state.resource_cells:

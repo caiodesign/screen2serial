@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import random
+import os
+import time
 from dataclasses import dataclass
 from mss import mss
 
@@ -236,10 +238,26 @@ def compute_random_click_position(cell: InventoryCell) -> tuple[int, int]:
     return x, y
 
 
+def save_inventory_debug(cell_gray: np.ndarray, bg_template: np.ndarray, bg_confidence: float, is_empty: bool) -> None:
+    """Save debug images when inventory detection seems wrong."""
+    if not config.DEBUG:
+        return
+
+    debug_dir = os.path.join(config.DEBUG_DIR, "inventory")
+    os.makedirs(debug_dir, exist_ok=True)
+
+    timestamp = int(time.time() * 1000)
+    prefix = f"{debug_dir}/{timestamp}_conf{bg_confidence:.3f}_empty{is_empty}"
+
+    cv2.imwrite(f"{prefix}_cell.png", cell_gray)
+    cv2.imwrite(f"{prefix}_bg_template.png", bg_template)
+
+
 def is_inventory_full(
     sct: mss,
     monitor: dict,
     bg_template: np.ndarray,
+    debug: bool = False,
 ) -> bool:
     """
     Check if inventory is full by only scanning the last cell.
@@ -255,5 +273,10 @@ def is_inventory_full(
     # Check if cell matches background (empty)
     bg_confidence = match_cell_against_template(cell_gray, bg_template)
     is_empty = bg_confidence >= config.INVENTORY_BG_THRESHOLD
+
+    if debug or not is_empty:
+        print(f"[INVENTORY CHECK] Last cell bg_confidence={bg_confidence:.3f}, threshold={config.INVENTORY_BG_THRESHOLD}, is_empty={is_empty}")
+        # Save debug images when we think inventory is full (helps diagnose false positives)
+        save_inventory_debug(cell_gray, bg_template, bg_confidence, is_empty)
 
     return not is_empty
