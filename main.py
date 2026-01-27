@@ -60,10 +60,10 @@ def on_key_press(key):
     global _should_start, _should_stop
     
     try:
-        # Check for F1/F2 keys
-        if key == keyboard.Key.f1:
+        # Check for Page Up/Page Down keys
+        if key == keyboard.Key.page_up:
             _should_start = True
-        elif key == keyboard.Key.f2:
+        elif key == keyboard.Key.page_down:
             _should_stop = True
     except AttributeError:
         pass
@@ -322,9 +322,9 @@ def main() -> None:
     print(f"Inventory: ({config.INVENTORY_X_START}, {config.INVENTORY_Y_START}) to ({config.INVENTORY_X_END}, {config.INVENTORY_Y_END})")
     print("")
     print("Controls:")
-    print("  F1 = Start (begin searching)")
-    print("  F2 = Stop (return to warmup)")
-    print("  q  = Quit (in debug window)")
+    print("  Page Up   = Start (begin searching)")
+    print("  Page Down = Stop (return to warmup)")
+    print("  q         = Quit (in debug window)")
     print("")
     print("State: WARMUP - Press F1 to start")
     print("=" * 50)

@@ -14,6 +14,10 @@ import config
 from capture import load_template, grab_region, preprocess_crop
 
 
+# Minimum distance (pixels) between two detections to consider them different items
+MIN_ITEM_DISTANCE = 30
+
+
 @dataclass(frozen=True)
 class InventoryItem:
     """Represents a found item in the inventory."""
@@ -60,95 +64,45 @@ def find_resources_in_inventory(
     # Get template dimensions for calculating center points
     template_h, template_w = template.shape[:2]
     
-    # Group nearby matches to avoid duplicates
-    # Use non-maximum suppression approach
-    items = []
+    # Get all detection points with their confidence
     points = list(zip(locations[1], locations[0]))  # (x, y) pairs
     
     if not points:
-        return items
-    
-    # Get confidence values for each point
-    confidences = [result[y, x] for x, y in points]
-    
-    # Apply non-maximum suppression
-    boxes = []
-    for (x, y), conf in zip(points, confidences):
-        boxes.append([x, y, x + template_w, y + template_h, conf])
-    
-    boxes = np.array(boxes)
-    picked_indices = non_max_suppression(boxes, overlap_thresh=0.3)
-    
-    # Convert to InventoryItem with absolute screen coordinates
-    for idx in picked_indices:
-        x, y = int(boxes[idx][0]), int(boxes[idx][1])
-        conf = boxes[idx][4]
-        
-        # Calculate center point in absolute screen coordinates
-        center_x = config.INVENTORY_X_START + x + (template_w // 2)
-        center_y = config.INVENTORY_Y_START + y + (template_h // 2)
-        
-        items.append(InventoryItem(x=center_x, y=center_y, confidence=conf))
-    
-    return items
-
-
-def non_max_suppression(boxes: np.ndarray, overlap_thresh: float = 0.3) -> list[int]:
-    """
-    Apply non-maximum suppression to avoid detecting the same item multiple times.
-    
-    Args:
-        boxes: Array of [x1, y1, x2, y2, confidence] for each detection
-        overlap_thresh: Overlap threshold for suppression
-    
-    Returns:
-        List of indices to keep
-    """
-    if len(boxes) == 0:
         return []
     
-    # Convert to float for division
-    boxes = boxes.astype(float)
+    # Get confidence values and create list of (x, y, confidence)
+    detections = []
+    for x, y in points:
+        conf = result[y, x]
+        # Calculate center point
+        center_x = x + (template_w // 2)
+        center_y = y + (template_h // 2)
+        detections.append((center_x, center_y, conf))
     
-    # Get coordinates
-    x1 = boxes[:, 0]
-    y1 = boxes[:, 1]
-    x2 = boxes[:, 2]
-    y2 = boxes[:, 3]
-    scores = boxes[:, 4]
+    # Sort by confidence (highest first)
+    detections.sort(key=lambda d: d[2], reverse=True)
     
-    # Calculate area of each box
-    area = (x2 - x1 + 1) * (y2 - y1 + 1)
+    # Filter out duplicates using distance-based deduplication
+    # Keep highest confidence detection, remove others within MIN_ITEM_DISTANCE
+    unique_items = []
     
-    # Sort by confidence score (highest first)
-    idxs = np.argsort(scores)[::-1]
-    
-    picked = []
-    
-    while len(idxs) > 0:
-        # Pick the box with highest confidence
-        i = idxs[0]
-        picked.append(i)
+    for cx, cy, conf in detections:
+        # Check if this detection is too close to an already picked item
+        is_duplicate = False
+        for item in unique_items:
+            dist = ((cx - (item.x - config.INVENTORY_X_START))**2 + 
+                    (cy - (item.y - config.INVENTORY_Y_START))**2) ** 0.5
+            if dist < MIN_ITEM_DISTANCE:
+                is_duplicate = True
+                break
         
-        # Calculate overlap with remaining boxes
-        xx1 = np.maximum(x1[i], x1[idxs[1:]])
-        yy1 = np.maximum(y1[i], y1[idxs[1:]])
-        xx2 = np.minimum(x2[i], x2[idxs[1:]])
-        yy2 = np.minimum(y2[i], y2[idxs[1:]])
-        
-        # Calculate intersection area
-        w = np.maximum(0, xx2 - xx1 + 1)
-        h = np.maximum(0, yy2 - yy1 + 1)
-        intersection = w * h
-        
-        # Calculate overlap ratio
-        overlap = intersection / area[idxs[1:]]
-        
-        # Remove boxes with high overlap
-        remaining = np.where(overlap <= overlap_thresh)[0]
-        idxs = idxs[remaining + 1]  # +1 because we removed index 0
+        if not is_duplicate:
+            # Convert to absolute screen coordinates
+            abs_x = config.INVENTORY_X_START + cx
+            abs_y = config.INVENTORY_Y_START + cy
+            unique_items.append(InventoryItem(x=abs_x, y=abs_y, confidence=conf))
     
-    return picked
+    return unique_items
 
 
 def get_drop_order(items: list[InventoryItem]) -> list[InventoryItem]:

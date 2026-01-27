@@ -53,8 +53,8 @@ DROP_CLICK_DELAY = 0.1   # Delay after clicking before moving to next item
 # =========================
 # KEYBOARD CONTROLS
 # =========================
-START_KEY = "f1"  # Key to start the bot (warmup -> searching)
-STOP_KEY = "f2"   # Key to stop the bot (any state -> warmup)
+START_KEY = "page_up"    # Key to start the bot (warmup -> searching)
+STOP_KEY = "page_down"   # Key to stop the bot (any state -> warmup)
 
 # =========================
 # DEBUG
