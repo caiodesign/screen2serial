@@ -10,6 +10,7 @@ from state import (
     STARTING,
     COLLECTING,
     COOLDOWN,
+    DROPPING,
     make_initial_state,
     make_initial_stats,
     transition_state,
@@ -32,6 +33,7 @@ from serial_io import (
     open_serial,
     send_move,
     send_click,
+    send_shift_click,
     compute_hesitation,
 )
 from debug import (
@@ -39,6 +41,13 @@ from debug import (
     should_save_debug,
     make_debug_base_path,
     save_debug_captures,
+)
+from inventory import (
+    load_inventory_templates,
+    analyze_inventory,
+    compute_random_click_position,
+    is_inventory_full,
+    InventoryState,
 )
 
 
@@ -133,17 +142,50 @@ def handle_cooldown(
     return state, stats
 
 
+def handle_dropping(
+    state: AppState,
+    stats: Stats,
+    now: float,
+    sct,
+    monitor: dict,
+    bg_template,
+    resource_template,
+    ser,
+) -> tuple[AppState, Stats]:
+    """Handle DROPPING state - drop all resources from inventory."""
+    inventory_state = analyze_inventory(sct, monitor, bg_template, resource_template)
+
+    print(f"[INVENTORY] Dropping {len(inventory_state.resource_cells)} resource(s)...")
+
+    for cell in inventory_state.resource_cells:
+        click_x, click_y = compute_random_click_position(cell)
+        print(f"  Dropping at cell ({cell.row}, {cell.col}) -> ({click_x}, {click_y})")
+        send_shift_click(ser, click_x, click_y)
+        time.sleep(0.5)
+
+    print("[INVENTORY] Done dropping, returning to WAITING")
+    return transition_state(state, now, WAITING, verify_count=0), stats
+
+
 def process_state_machine(
     state: AppState,
     stats: Stats,
     match_result: MatchResult,
     now: float,
     ser,
+    sct=None,
+    monitor=None,
+    bg_template=None,
+    resource_template=None,
+    inventory_full: bool = False,
 ) -> tuple[AppState, Stats]:
     """Process state machine and return new state and stats."""
     matched = match_result.matched
 
     if state.name == WAITING:
+        # Check inventory first - if full, go drop resources
+        if inventory_full:
+            return transition_state(state, now, DROPPING), stats
         return handle_waiting(state, stats, matched, now)
     elif state.name == VERIFY:
         return handle_verify(state, stats, matched, now)
@@ -153,6 +195,10 @@ def process_state_machine(
         return handle_collecting(state, stats, matched, now)
     elif state.name == COOLDOWN:
         return handle_cooldown(state, stats, now)
+    elif state.name == DROPPING:
+        return handle_dropping(
+            state, stats, now, sct, monitor, bg_template, resource_template, ser
+        )
 
     return state, stats
 
@@ -166,6 +212,17 @@ def main() -> None:
     template = load_template(config.TEMPLATE_PATH)
     sct, monitor = create_screen_capturer()
     ser = open_serial(config.SERIAL_PORT, config.BAUD_RATE)
+
+    # Load inventory templates
+    try:
+        resource_template, bg_template = load_inventory_templates()
+        inventory_enabled = True
+        print("Inventory management enabled")
+    except RuntimeError as e:
+        print(f"Inventory management disabled: {e}")
+        inventory_enabled = False
+        resource_template = None
+        bg_template = None
 
     state = make_initial_state()
     stats = make_initial_stats()
@@ -205,8 +262,20 @@ def main() -> None:
                 match_result.matched,
             )
 
+        # Check if inventory is full (only scan last cell)
+        inventory_full = False
+        if inventory_enabled and state.name == WAITING:
+            inventory_full = is_inventory_full(sct, monitor, bg_template)
+
         # State machine
-        state, stats = process_state_machine(state, stats, match_result, now, ser)
+        state, stats = process_state_machine(
+            state, stats, match_result, now, ser,
+            sct=sct,
+            monitor=monitor,
+            bg_template=bg_template,
+            resource_template=resource_template,
+            inventory_full=inventory_full,
+        )
 
         # Periodic stats log
         if int(now) % 30 == 0:

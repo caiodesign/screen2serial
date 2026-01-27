@@ -5,15 +5,16 @@ import time
 # =========================
 # STATE TYPES
 # =========================
-StateName = Literal["waiting", "verify", "starting", "collecting", "cooldown"]
+StateName = Literal["waiting", "verify", "starting", "collecting", "cooldown", "dropping"]
 
 WAITING: StateName = "waiting"
 VERIFY: StateName = "verify"
 STARTING: StateName = "starting"
 COLLECTING: StateName = "collecting"
 COOLDOWN: StateName = "cooldown"
+DROPPING: StateName = "dropping"
 
-ALL_STATES = (WAITING, VERIFY, STARTING, COLLECTING, COOLDOWN)
+ALL_STATES = (WAITING, VERIFY, STARTING, COLLECTING, COOLDOWN, DROPPING)
 
 
 @dataclass(frozen=True)
