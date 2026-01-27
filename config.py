@@ -66,6 +66,6 @@ INVENTORY_RESOURCE_THRESHOLD = 0.70  # similarity threshold for resource
 # =========================
 # DEBUG
 # =========================
-DEBUG = True
+DEBUG = False
 DEBUG_DIR = "debug_captures"
 DEBUG_SAVE_MODE = "fail"  # "fail" or "all"

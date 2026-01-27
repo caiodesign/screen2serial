@@ -1,3 +1,4 @@
+from re import M
 import time
 import pyautogui
 
@@ -84,8 +85,9 @@ def handle_starting(
     match_x, match_y = match_result.max_loc
     
     # Target is center of the matched area, offset by the region start coordinates
+    # Add 30 pixels below to avoid mouse entering the detection zone
     target_x = config.REGION_X_START + match_x + (template_w // 2)
-    target_y = config.REGION_Y_START + match_y + (template_h // 2)
+    target_y = config.REGION_Y_START + match_y + (template_h // 2) + 30
     
     dx = target_x - mx
     dy = target_y - my
