@@ -40,6 +40,10 @@ def load_inventory_templates() -> tuple[np.ndarray, np.ndarray]:
     if bg_template is None:
         raise RuntimeError(f"Background template not found: {config.INVENTORY_BG_TEMPLATE_PATH}")
 
+    # Apply same preprocessing as main detection (GaussianBlur)
+    resource_template = cv2.GaussianBlur(resource_template, (5, 5), 0)
+    bg_template = cv2.GaussianBlur(bg_template, (5, 5), 0)
+
     return resource_template, bg_template
 
 
@@ -130,7 +134,9 @@ def extract_cell_image(
     y_end = y_start + sample_size
 
     cell = inventory_frame[y_start:y_end, x_start:x_end]
-    return cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
+    # Apply same preprocessing as main detection (GaussianBlur)
+    return cv2.GaussianBlur(gray, (5, 5), 0)
 
 
 def match_cell_against_template(
