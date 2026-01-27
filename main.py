@@ -222,8 +222,9 @@ def handle_dropping(
         time.sleep(0.1)  # Small delay for mouse to arrive
         
         # Shift+click to drop (send twice for reliability)
+        # Arduino has 300ms cooldown, so wait at least that between clicks
         send_shift_click(ser)
-        time.sleep(random.uniform(0.05, 0.15))  # Random human-like delay
+        time.sleep(random.uniform(0.35, 0.45))  # Wait for Arduino cooldown (300ms)
         send_shift_click(ser)
         
         dropped_count += 1

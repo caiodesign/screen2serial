@@ -17,16 +17,19 @@ def open_serial(port: str, baud: int, retries: int = 5) -> serial.Serial:
 def send_move(ser: serial.Serial, dx: int, dy: int) -> None:
     """Send move command to serial device."""
     ser.write(f"M{dx},{dy}\n".encode())
+    ser.flush()
 
 
 def send_click(ser: serial.Serial) -> None:
     """Send left click command to serial device."""
     ser.write(b"L\n")
+    ser.flush()
 
 
 def send_shift_click(ser: serial.Serial) -> None:
     """Send shift+left click command at current mouse position."""
     ser.write(b"SL\n")
+    ser.flush()
 
 
 def compute_hesitation(
