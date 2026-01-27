@@ -32,6 +32,18 @@ def send_shift_click(ser: serial.Serial) -> None:
     ser.flush()
 
 
+def send_shift_hold(ser: serial.Serial) -> None:
+    """Hold shift key down."""
+    ser.write(b"SH\n")
+    ser.flush()
+
+
+def send_shift_release(ser: serial.Serial) -> None:
+    """Release shift key."""
+    ser.write(b"SR\n")
+    ser.flush()
+
+
 def compute_hesitation(
     confidence: float,
     threshold: float,

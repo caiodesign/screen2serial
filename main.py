@@ -42,7 +42,8 @@ from serial_io import (
     open_serial,
     send_move,
     send_click,
-    send_shift_click,
+    send_shift_hold,
+    send_shift_release,
     compute_hesitation,
 )
 from inventory import (
@@ -206,7 +207,11 @@ def handle_dropping(
     # Sort items for efficient dropping
     sorted_items = get_drop_order(items)
     
-    # Drop each item
+    # Hold shift for the entire dropping sequence
+    send_shift_hold(ser)
+    time.sleep(0.1)  # Small delay to ensure shift is held
+    
+    # Drop each item (just click, shift is already held)
     dropped_count = 0
     for item in sorted_items:
         # Wait before moving to next item (human-like delay)
@@ -221,11 +226,10 @@ def handle_dropping(
         send_move(ser, dx, dy)
         time.sleep(0.1)  # Small delay for mouse to arrive
         
-        # Shift+click to drop (send twice for reliability)
-        # Arduino has 300ms cooldown, so wait at least that between clicks
-        send_shift_click(ser)
+        # Click to drop (shift is held)
+        send_click(ser)
         time.sleep(random.uniform(0.35, 0.45))  # Wait for Arduino cooldown (300ms)
-        send_shift_click(ser)
+        send_click(ser)  # Click twice for reliability
         
         dropped_count += 1
         
@@ -234,6 +238,9 @@ def handle_dropping(
         
         # Small delay after click
         time.sleep(config.DROP_CLICK_DELAY)
+    
+    # Release shift after all items dropped
+    send_shift_release(ser)
     
     print(f"[DROPPING] Dropped {dropped_count} items - Back to searching")
     
