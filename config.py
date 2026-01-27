@@ -10,13 +10,13 @@ BAUD_RATE = 9600
 # =========================
 CENTER_X = 364
 CENTER_Y = 201
-CROP_SIZE = 100
+CROP_SIZE = 200  # Must be larger than template (100x100). Increased from 100 to allow template matching.
 Y_MARGIN = 30
 
 # =========================
 # MATCHING
 # =========================
-MATCH_THRESHOLD = 0.70
+MATCH_THRESHOLD = 0.50  # Lowered from 0.70 for testing (opencv_tutorials uses 0.5)
 SCAN_INTERVAL = 2.0
 
 # =========================

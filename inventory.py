@@ -40,18 +40,6 @@ def load_inventory_templates() -> tuple[np.ndarray, np.ndarray]:
     if bg_template is None:
         raise RuntimeError(f"Background template not found: {config.INVENTORY_BG_TEMPLATE_PATH}")
 
-    # Apply same preprocessing as main detection (GaussianBlur)
-    resource_template = cv2.GaussianBlur(resource_template, (5, 5), 0)
-    bg_template = cv2.GaussianBlur(bg_template, (5, 5), 0)
-
-    # Save processed templates in debug mode for comparison
-    if config.DEBUG:
-        debug_dir = os.path.join(config.DEBUG_DIR, "inventory")
-        os.makedirs(debug_dir, exist_ok=True)
-        cv2.imwrite(f"{debug_dir}/template_resource_PROCESSED.png", resource_template)
-        cv2.imwrite(f"{debug_dir}/template_bg_PROCESSED.png", bg_template)
-        print(f"[DEBUG] Saved processed templates to {debug_dir}/")
-
     return resource_template, bg_template
 
 
@@ -142,9 +130,7 @@ def extract_cell_image(
     y_end = y_start + sample_size
 
     cell = inventory_frame[y_start:y_end, x_start:x_end]
-    gray = cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
-    # Apply same preprocessing as main detection (GaussianBlur)
-    return cv2.GaussianBlur(gray, (5, 5), 0)
+    return cv2.cvtColor(cell, cv2.COLOR_BGR2GRAY)
 
 
 def match_cell_against_template(
@@ -171,7 +157,6 @@ def analyze_cell(
     col: int,
     bg_template: np.ndarray,
     resource_template: np.ndarray,
-    save_debug: bool = False,
 ) -> InventoryCell:
     """Analyze a single cell to determine its contents."""
     x, y, width, height = get_cell_bounds(row, col)
@@ -183,15 +168,6 @@ def analyze_cell(
     # Check if cell contains a resource
     resource_confidence = match_cell_against_template(cell_gray, resource_template)
     is_resource = resource_confidence >= config.INVENTORY_RESOURCE_THRESHOLD
-
-    # Save debug images for first few cells to help diagnose
-    if save_debug and config.DEBUG:
-        debug_dir = os.path.join(config.DEBUG_DIR, "inventory")
-        os.makedirs(debug_dir, exist_ok=True)
-        cv2.imwrite(
-            f"{debug_dir}/cell_r{row}_c{col}_bg{bg_confidence:.3f}_res{resource_confidence:.3f}.png",
-            cell_gray
-        )
 
     return InventoryCell(
         row=row,
@@ -214,22 +190,14 @@ def analyze_inventory(
     """Capture and analyze the full inventory."""
     inventory_frame = grab_inventory_region(sct, monitor)
 
-    # Save the full inventory frame in debug mode
-    if config.DEBUG:
-        debug_dir = os.path.join(config.DEBUG_DIR, "inventory")
-        os.makedirs(debug_dir, exist_ok=True)
-        cv2.imwrite(f"{debug_dir}/inventory_frame_FULL.png", inventory_frame)
-
     cells = []
     resource_cells = []
 
     for row in range(config.INVENTORY_ROWS):
         for col in range(config.INVENTORY_COLS):
             cell_gray = extract_cell_image(inventory_frame, row, col)
-            # Save debug for first row and last row to help diagnose
-            save_debug = config.DEBUG and (row == 0 or row == config.INVENTORY_ROWS - 1)
             cell = analyze_cell(
-                cell_gray, row, col, bg_template, resource_template, save_debug=save_debug
+                cell_gray, row, col, bg_template, resource_template
             )
             cells.append(cell)
 
@@ -279,11 +247,10 @@ def save_inventory_debug(cell_gray: np.ndarray, bg_template: np.ndarray, bg_conf
     os.makedirs(debug_dir, exist_ok=True)
 
     timestamp = int(time.time() * 1000)
-    
-    # Save with clear names for easy comparison
-    # Cell capture (what we're scanning)
-    cv2.imwrite(f"{debug_dir}/cell_CAPTURED_latest.png", cell_gray)
-    cv2.imwrite(f"{debug_dir}/{timestamp}_cell_conf{bg_confidence:.3f}_isEmpty{is_empty}.png", cell_gray)
+    prefix = f"{debug_dir}/{timestamp}_conf{bg_confidence:.3f}_empty{is_empty}"
+
+    cv2.imwrite(f"{prefix}_cell.png", cell_gray)
+    cv2.imwrite(f"{prefix}_bg_template.png", bg_template)
 
 
 def is_inventory_full(

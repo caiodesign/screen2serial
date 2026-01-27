@@ -28,6 +28,8 @@ from capture import (
     match_template,
     MatchResult,
     compute_target_y,
+    save_match_debug,
+    validate_template_size,
 )
 from serial_io import (
     open_serial,
@@ -39,8 +41,6 @@ from serial_io import (
 from debug import (
     ensure_debug_dir,
     should_save_debug,
-    make_debug_base_path,
-    save_debug_captures,
 )
 from inventory import (
     load_inventory_templates,
@@ -220,6 +220,10 @@ def main() -> None:
         ensure_debug_dir(config.DEBUG_DIR)
 
     template = load_template(config.TEMPLATE_PATH)
+
+    # Validate template size vs crop size (critical for matching to work)
+    validate_template_size(template, config.CROP_SIZE)
+
     sct, monitor = create_screen_capturer()
     ser = open_serial(config.SERIAL_PORT, config.BAUD_RATE)
 
@@ -257,19 +261,16 @@ def main() -> None:
 
         print(f"[{state.name}] confidence={match_result.confidence:.3f}")
 
-        # Debug captures
+        # Debug captures - save detailed match debug when not matching
         if should_save_debug(config.DEBUG, config.DEBUG_SAVE_MODE, match_result.matched):
-            base_path = make_debug_base_path(
-                config.DEBUG_DIR, state.name, match_result.confidence
-            )
-            save_debug_captures(
-                base_path,
+            save_match_debug(
+                config.DEBUG_DIR,
                 match_result.gray,
                 template,
                 match_result.result,
-                state.name,
                 match_result.confidence,
-                match_result.matched,
+                match_result.max_loc,
+                config.MATCH_THRESHOLD,
             )
 
         # Check if inventory is full (only scan last cell)
