@@ -34,7 +34,7 @@ from logic import (
     Point,
     find_all_templates,
     find_template,
-    is_inventory_opened,
+    template_exists,
     get_last_item_bottom_right,
     # Actions
     click_point,
@@ -88,6 +88,14 @@ SPELL_REGION = Region(
     y_end=config.INVENTORY_Y_START + config.SPELL_SCAN_Y_LIMIT,
 )
 
+# Menu region (bottom bar where tabs are located)
+MENU_REGION = Region(
+    x_start=config.MENU_REGION_X_START,
+    y_start=config.MENU_REGION_Y_START,
+    x_end=config.MENU_REGION_X_END,
+    y_end=config.MENU_REGION_Y_END,
+)
+
 
 @dataclass
 class EnchantingContext:
@@ -130,12 +138,12 @@ def handle_check_inventory(
     sct,
     monitor,
 ) -> tuple[AppState, Stats]:
-    """Check if inventory is opened using HSV red detection."""
-    is_open = is_inventory_opened(
+    """Check if inventory is opened using template matching in menu region."""
+    is_open = template_exists(
         sct, monitor,
-        icon_x=config.INVENTORY_ICON_X,
-        icon_y=config.INVENTORY_ICON_Y,
-        icon_size=config.INVENTORY_ICON_SIZE,
+        config.INVENTORY_OPENED_TEMPLATE,
+        MENU_REGION,
+        config.MENU_MATCH_THRESHOLD,
     )
     
     if is_open:

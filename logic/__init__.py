@@ -54,7 +54,6 @@ from .vision import (
     find_all_templates,
     sort_by_position,
     get_last_item_bottom_right,
-    is_inventory_opened,
     find_template,
     template_exists,
 )
@@ -118,7 +117,6 @@ __all__ = [
     "find_all_templates",
     "sort_by_position",
     "get_last_item_bottom_right",
-    "is_inventory_opened",
     "find_template",
     "template_exists",
     # Actions

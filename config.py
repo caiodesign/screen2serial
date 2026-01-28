@@ -79,10 +79,18 @@ ENCHANT_LEVEL_2_TEMPLATE = "images/magic/magic_jewell_enchant_level_2.png"
 # Spell scan region (first 40px Y of inventory area for finding spells)
 SPELL_SCAN_Y_LIMIT = 40
 
-# Menu icon region for HSV inventory detection
-INVENTORY_ICON_X = 960
-INVENTORY_ICON_Y = 960
-INVENTORY_ICON_SIZE = 36
+# Menu region (bottom bar where inventory/magic/etc tabs are)
+MENU_REGION_X_START = 1030
+MENU_REGION_X_END = 1580
+MENU_REGION_Y_START = 980
+MENU_REGION_Y_END = 1035
+
+# Menu templates
+INVENTORY_OPENED_TEMPLATE = "images/menu/inventory-opened.png"
+INVENTORY_CLOSED_TEMPLATE = "images/menu/inventory.png"
+
+# Menu detection threshold
+MENU_MATCH_THRESHOLD = 0.80
 
 # Enchanting thresholds
 ENCHANT_ITEM_THRESHOLD = 0.70

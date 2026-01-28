@@ -320,21 +320,6 @@ def get_last_item_bottom_right(items: list[Point]) -> Point | None
 
 Get the bottom-right most point (for enchanting).
 
-#### is_inventory_opened
-
-```python
-def is_inventory_opened(
-    sct: mss,
-    monitor: dict,
-    icon_x: int = 960,
-    icon_y: int = 960,
-    icon_size: int = 36,
-    threshold: float = 0.10,
-) -> bool
-```
-
-Detect if inventory tab is open via red background detection.
-
 ---
 
 ## actions.py - Mouse/Keyboard Actions
