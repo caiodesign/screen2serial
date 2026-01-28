@@ -69,6 +69,30 @@ KEY_MAGIC = "f6"         # Magic spellbook tab
 KEY_SETTINGS = "f10"     # Settings tab
 
 # =========================
+# ENCHANTING
+# =========================
+# Templates
+JADE_AMULET_TEMPLATE = "images/item/equip/jade_amulet.png"
+ENCHANT_SPELL_TEMPLATE = "images/magic/magic_jewell_enchant.png"
+ENCHANT_LEVEL_2_TEMPLATE = "images/magic/magic_jewell_enchant_level_2.png"
+
+# Spell scan region (first 40px Y of inventory area for finding spells)
+SPELL_SCAN_Y_LIMIT = 40
+
+# Menu icon region for HSV inventory detection
+INVENTORY_ICON_X = 960
+INVENTORY_ICON_Y = 960
+INVENTORY_ICON_SIZE = 36
+
+# Enchanting thresholds
+ENCHANT_ITEM_THRESHOLD = 0.70
+ENCHANT_SPELL_THRESHOLD = 0.70
+
+# Enchanting timing (fast: 0.2-0.4s)
+ENCHANT_CLICK_DELAY_MIN = 0.2
+ENCHANT_CLICK_DELAY_MAX = 0.4
+
+# =========================
 # DEBUG
 # =========================
 DEBUG = False

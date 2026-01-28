@@ -53,6 +53,10 @@ from .vision import (
     Point,
     find_all_templates,
     sort_by_position,
+    get_last_item_bottom_right,
+    is_inventory_opened,
+    find_template,
+    template_exists,
 )
 
 from .actions import (
@@ -113,6 +117,10 @@ __all__ = [
     "Point",
     "find_all_templates",
     "sort_by_position",
+    "get_last_item_bottom_right",
+    "is_inventory_opened",
+    "find_template",
+    "template_exists",
     # Actions
     "get_mouse_position",
     "random_delay",

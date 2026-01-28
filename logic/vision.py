@@ -296,3 +296,80 @@ def sort_by_position(
     x_mult = 1 if left_to_right else -1
     
     return sorted(items, key=lambda p: (p.y * y_mult, p.x * x_mult))
+
+
+def get_last_item_bottom_right(items: list[Point]) -> Point | None:
+    """
+    Get the last item using bottom-right priority.
+    
+    Priority: bottom row first, then rightmost column in that row.
+    Useful for enchanting where we want to click the last unenchanted item.
+    
+    Args:
+        items: List of Points (item positions)
+    
+    Returns:
+        The bottom-right most Point, or None if list is empty
+    """
+    if not items:
+        return None
+    # Sort by Y descending (bottom first), then X descending (right first)
+    sorted_items = sorted(items, key=lambda p: (-p.y, -p.x))
+    return sorted_items[0]
+
+
+def is_inventory_opened(
+    sct: mss,
+    monitor: dict,
+    icon_x: int = 960,
+    icon_y: int = 960,
+    icon_size: int = 36,
+    threshold: float = 0.10,
+) -> bool:
+    """
+    Check if inventory tab is opened by detecting red background on menu icon.
+    
+    Uses HSV color detection to distinguish:
+    - Opened inventory: Red background on icon
+    - Closed inventory: Gray background on icon
+    
+    Args:
+        sct: mss screen capturer
+        monitor: Monitor dict from mss
+        icon_x: X coordinate of inventory icon center
+        icon_y: Y coordinate of inventory icon center
+        icon_size: Size of region to capture around icon
+        threshold: Minimum ratio of red pixels to consider "opened"
+    
+    Returns:
+        True if inventory is opened (red detected), False otherwise
+    """
+    # Capture small region around the menu icon
+    half_size = icon_size // 2
+    frame = grab_region(
+        sct, monitor,
+        icon_x - half_size, icon_y - half_size,
+        icon_x + half_size, icon_y + half_size,
+    )
+    
+    # Convert BGR to HSV for color detection
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    
+    # Red HSV ranges (red wraps around hue wheel at 0 and 180)
+    # Lower red range: H=0-10
+    lower_red1 = np.array([0, 70, 50])
+    upper_red1 = np.array([10, 255, 255])
+    # Upper red range: H=170-180
+    lower_red2 = np.array([170, 70, 50])
+    upper_red2 = np.array([180, 255, 255])
+    
+    # Create masks for both red ranges
+    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+    
+    # Calculate ratio of red pixels
+    total_pixels = mask1.size
+    red_pixels = np.count_nonzero(mask1) + np.count_nonzero(mask2)
+    red_ratio = red_pixels / total_pixels
+    
+    return red_ratio >= threshold
