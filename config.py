@@ -33,8 +33,9 @@ HESITATION_MAX = 0.25
 # =========================
 # INVENTORY MANAGEMENT
 # =========================
-INVENTORY_X_START = 1636
-INVENTORY_X_END = 1873
+# Note: These values assume RuneLite sidebar is open (342px width)
+INVENTORY_X_START = 1324
+INVENTORY_X_END = 1561
 INVENTORY_Y_START = 652
 INVENTORY_Y_END = 978
 
