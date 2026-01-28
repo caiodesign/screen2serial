@@ -65,6 +65,7 @@ from .vision_debug import (
     template_exists as template_exists_debug,
     count_template as count_template_debug,
     find_closest_template_debug,
+    cleanup_debug_windows,
 )
 
 from .actions import (
@@ -135,6 +136,7 @@ __all__ = [
     "template_exists_debug",
     "count_template_debug",
     "find_closest_template_debug",
+    "cleanup_debug_windows",
     # Actions
     "get_mouse_position",
     "random_delay",

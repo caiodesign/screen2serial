@@ -153,6 +153,11 @@ def main() -> None:
     finally:
         # Cleanup
         listener.stop()
+        
+        # Cleanup debug windows if debug mode was enabled
+        if args.debug:
+            from logic import cleanup_debug_windows
+            cleanup_debug_windows()
 
 
 if __name__ == "__main__":

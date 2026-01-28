@@ -5,11 +5,15 @@ This module wraps pure vision functions with debug visualization capabilities.
 Import from here instead of vision.py when DEBUG=True to see live debug windows.
 
 The pure functions in vision.py remain untouched - all debug logic is isolated here.
+
+Uses a background thread for OpenCV windows to prevent "not responding" issues.
 """
 
 import functools
 import cv2
 import numpy as np
+import threading
+import queue
 from typing import Callable, Any
 
 import config
@@ -31,6 +35,138 @@ WINDOW_REGION = "Debug: Captured Region"
 WINDOW_TEMPLATE = "Debug: Template"
 
 
+# =========================
+# THREADED WINDOW MANAGER
+# =========================
+
+class DebugWindowManager:
+    """
+    Manages OpenCV debug windows in a background thread.
+    
+    This prevents the "not responding" issue by keeping the window
+    event loop running independently of the main bot loop.
+    """
+    
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        """Singleton pattern - only one window manager."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self):
+        if self._initialized:
+            return
+            
+        self._frame_queue = queue.Queue(maxsize=1)  # Only keep latest frame
+        self._running = False
+        self._thread = None
+        self._should_pause = threading.Event()
+        self._pause_acknowledged = threading.Event()
+        self._initialized = True
+    
+    def start(self):
+        """Start the background window thread."""
+        if self._running:
+            return
+            
+        self._running = True
+        self._thread = threading.Thread(target=self._window_loop, daemon=True)
+        self._thread.start()
+    
+    def stop(self):
+        """Stop the background window thread."""
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=1.0)
+        cv2.destroyAllWindows()
+    
+    def update(self, region_frame: np.ndarray, template_frame: np.ndarray, is_match: bool):
+        """
+        Send new frames to display.
+        
+        Non-blocking - drops old frames if queue is full.
+        """
+        self.start()  # Auto-start on first use
+        
+        try:
+            # Clear old frame if any
+            try:
+                self._frame_queue.get_nowait()
+            except queue.Empty:
+                pass
+            
+            # Add new frame
+            self._frame_queue.put_nowait((region_frame.copy(), template_frame.copy(), is_match))
+        except queue.Full:
+            pass  # Skip this frame
+    
+    def pause_for_inspection(self):
+        """
+        Pause and wait for user keypress (used in pause_on_fail mode).
+        
+        This signals the window thread to wait for a keypress.
+        """
+        self._pause_acknowledged.clear()
+        self._should_pause.set()
+        # Wait for the window thread to acknowledge and handle the pause
+        self._pause_acknowledged.wait(timeout=60.0)  # 60 second timeout
+    
+    def _window_loop(self):
+        """Background thread that manages OpenCV windows."""
+        while self._running:
+            try:
+                # Check for new frames (with timeout to keep event loop responsive)
+                try:
+                    region_frame, template_frame, is_match = self._frame_queue.get(timeout=0.05)
+                    cv2.imshow(WINDOW_REGION, region_frame)
+                    cv2.imshow(WINDOW_TEMPLATE, template_frame)
+                except queue.Empty:
+                    pass
+                
+                # Check if we should pause for inspection
+                if self._should_pause.is_set():
+                    self._should_pause.clear()
+                    print("[DEBUG] Match FAILED - Press any key in debug window to continue...")
+                    cv2.waitKey(0)  # Wait for any key
+                    self._pause_acknowledged.set()
+                else:
+                    # Process window events (non-blocking)
+                    key = cv2.waitKey(30) & 0xFF  # 30ms for responsive windows
+                    if key == ord('q'):
+                        print("[DEBUG] 'q' pressed - closing debug windows")
+                        cv2.destroyAllWindows()
+                        self._running = False
+                        break
+                        
+            except Exception as e:
+                print(f"[DEBUG] Window error: {e}")
+                break
+        
+        cv2.destroyAllWindows()
+
+
+# Global window manager instance
+_window_manager = None
+
+
+def _get_window_manager() -> DebugWindowManager:
+    """Get or create the singleton window manager."""
+    global _window_manager
+    if _window_manager is None:
+        _window_manager = DebugWindowManager()
+    return _window_manager
+
+
+# =========================
+# VISUALIZATION HELPERS
+# =========================
+
 def _draw_match_result(
     gray: np.ndarray,
     template: np.ndarray,
@@ -44,6 +180,9 @@ def _draw_match_result(
     output = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
     
     tmpl_h, tmpl_w = template.shape[:2]
+    top_left = None
+    bottom_right = None
+    confidence = 0.0
     
     if result is not None:
         # For Point results (find_template returns Point)
@@ -84,7 +223,7 @@ def _draw_match_result(
         confidence = max_val
     
     # Draw rectangle if we have coordinates
-    if top_left is not None:
+    if top_left is not None and bottom_right is not None:
         color = (0, 255, 0) if is_match else (0, 0, 255)  # Green if match, red if not
         cv2.rectangle(output, top_left, bottom_right, color, 2)
     
@@ -129,11 +268,9 @@ def _show_debug_visualization(
     threshold: float,
     result: Any,
     is_match: bool,
-) -> bool:
+) -> None:
     """
-    Show debug windows with captured region and template.
-    
-    Returns False if 'q' was pressed to quit, True otherwise.
+    Send debug visualization to the background window thread.
     """
     # Get template as numpy array
     tmpl = _get_template(template)
@@ -172,25 +309,14 @@ def _show_debug_visualization(
         1,
     )
     
-    # Show windows
-    cv2.imshow(WINDOW_REGION, region_display)
-    cv2.imshow(WINDOW_TEMPLATE, template_display)
+    # Send to window manager (non-blocking)
+    manager = _get_window_manager()
+    manager.update(region_display, template_display, is_match)
     
-    # Handle window mode
+    # Handle pause_on_fail mode
     mode = getattr(config, 'DEBUG_WINDOW_MODE', 'live')
-    
     if mode == "pause_on_fail" and not is_match:
-        # Wait for any key press when match fails
-        print(f"[DEBUG] Match FAILED - Press any key to continue...")
-        cv2.waitKey(0)
-    else:
-        # Non-blocking wait, check for 'q' to quit
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            cv2.destroyAllWindows()
-            return False
-    
-    return True
+        manager.pause_for_inspection()
 
 
 def with_debug_window(func: Callable) -> Callable:
@@ -219,7 +345,7 @@ def with_debug_window(func: Callable) -> Callable:
         else:
             is_match = result is not None
         
-        # Show debug visualization
+        # Show debug visualization (non-blocking, uses background thread)
         _show_debug_visualization(sct, monitor, template, region, threshold, result, is_match)
         
         return result
@@ -261,3 +387,12 @@ from .vision import (
     sort_by_position,
     get_last_item_bottom_right,
 )
+
+
+# Cleanup function for graceful shutdown
+def cleanup_debug_windows():
+    """Stop the debug window manager. Call this on program exit."""
+    global _window_manager
+    if _window_manager is not None:
+        _window_manager.stop()
+        _window_manager = None
