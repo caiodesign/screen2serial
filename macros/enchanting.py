@@ -246,7 +246,15 @@ def handle_find_level(
     monitor,
     ctx: EnchantingContext,
 ) -> tuple[AppState, Stats]:
-    """Find enchant level 2 in enchants interface and save position."""
+    """Find enchant level 2 in enchants interface and save position.
+    
+    NOTE: After clicking the spell, the level selection popup takes time to appear.
+    This handler will retry for up to 2 seconds before giving up.
+    """
+    # Check how long we've been in this state (for retry timeout)
+    time_in_state = now - state.since
+    MAX_WAIT_TIME = 2.0  # Max seconds to wait for popup to appear
+    
     level_pos = find_template(
         sct, monitor,
         config.ENCHANT_LEVEL_2_TEMPLATE,
@@ -255,8 +263,14 @@ def handle_find_level(
     )
     
     if level_pos is None:
-        print("[FIND_LEVEL] ERROR: Cannot find level 2 enchant!")
-        return transition_state(state, now, WARMUP), stats
+        if time_in_state < MAX_WAIT_TIME:
+            # Popup might not have appeared yet - stay in this state and retry
+            print(f"[FIND_LEVEL] Waiting for popup... ({time_in_state:.1f}s)")
+            return state, stats  # Stay in same state, will retry on next iteration
+        else:
+            # Timed out waiting for popup
+            print("[FIND_LEVEL] ERROR: Cannot find level 2 enchant after waiting!")
+            return transition_state(state, now, WARMUP), stats
     
     # Save position for reuse in loop
     ctx.enchant_level_pos = level_pos

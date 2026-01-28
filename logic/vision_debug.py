@@ -174,6 +174,7 @@ def _draw_match_result(
     region: Region,
     threshold: float,
     is_match: bool,
+    template_name: str = "unknown",
 ) -> np.ndarray:
     """Draw match result on the captured region image."""
     # Convert to BGR for colored drawing
@@ -231,8 +232,17 @@ def _draw_match_result(
     text_color = (0, 255, 0) if is_match else (0, 0, 255)
     cv2.putText(
         output,
-        f"Conf: {confidence:.3f} / Thresh: {threshold:.2f}",
+        f"Template: {template_name}",
         (10, 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (255, 255, 0),  # Yellow for visibility
+        1,
+    )
+    cv2.putText(
+        output,
+        f"Conf: {confidence:.3f} / Thresh: {threshold:.2f}",
+        (10, 50),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.6,
         text_color,
@@ -241,7 +251,7 @@ def _draw_match_result(
     cv2.putText(
         output,
         f"Region: ({region.x_start},{region.y_start})-({region.x_end},{region.y_end})",
-        (10, 50),
+        (10, 75),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.5,
         (255, 255, 255),
@@ -250,7 +260,7 @@ def _draw_match_result(
     cv2.putText(
         output,
         f"Match: {'YES' if is_match else 'NO'}",
-        (10, 75),
+        (10, 100),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.6,
         text_color,
@@ -267,6 +277,7 @@ def _show_debug_visualization(
     threshold: float,
     result: Any,
     is_match: bool,
+    template_name: str = "unknown",
 ) -> None:
     """
     Send debug visualization to the background window thread.
@@ -278,10 +289,11 @@ def _show_debug_visualization(
         threshold: Threshold used for matching
         result: Result from the vision function
         is_match: Whether the match was successful
+        template_name: Name/path of the template for display
     """
     
     # Draw match result on region
-    region_display = _draw_match_result(gray, tmpl, result, region, threshold, is_match)
+    region_display = _draw_match_result(gray, tmpl, result, region, threshold, is_match, template_name)
     
     # Scale down if too large
     max_display_height = 600
@@ -338,6 +350,14 @@ def with_debug_window(func: Callable) -> Callable:
         tmpl = _get_template(template)
         gray = _capture_region(sct, monitor, region)
         
+        # Extract template name for debug display
+        if isinstance(template, str):
+            # Get just the filename from the path
+            import os
+            template_name = os.path.basename(template)
+        else:
+            template_name = f"array_{tmpl.shape}"
+        
         # Call the original pure function (it will do its own capture internally,
         # but timing should be nearly identical)
         result = func(sct, monitor, template, region, threshold, *args, **kwargs)
@@ -357,7 +377,7 @@ def with_debug_window(func: Callable) -> Callable:
             is_match = result is not None
         
         # Show debug visualization using the pre-captured frame
-        _show_debug_visualization(gray, tmpl, region, threshold, result, is_match)
+        _show_debug_visualization(gray, tmpl, region, threshold, result, is_match, template_name)
         
         return result
     
@@ -385,13 +405,21 @@ def find_closest_template_debug(
     threshold: float = 0.8,
 ) -> Point | None:
     """Debug wrapper for find_closest_template (has extra from_pos param)."""
+    import os
+    
     # Capture BEFORE calling the function
     tmpl = _get_template(template)
     gray = _capture_region(sct, monitor, region)
     
+    # Extract template name for debug display
+    if isinstance(template, str):
+        template_name = os.path.basename(template)
+    else:
+        template_name = f"array_{tmpl.shape}"
+    
     result = _find_closest_template(sct, monitor, template, region, from_pos, threshold)
     is_match = result is not None
-    _show_debug_visualization(gray, tmpl, region, threshold, result, is_match)
+    _show_debug_visualization(gray, tmpl, region, threshold, result, is_match, template_name)
     return result
 
 
