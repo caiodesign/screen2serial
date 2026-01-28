@@ -228,43 +228,43 @@ def _draw_match_result(
         color = (0, 255, 0) if is_match else (0, 0, 255)  # Green if match, red if not
         cv2.rectangle(output, top_left, bottom_right, color, 2)
     
-    # Add text overlay with match info
+    # Add text overlay with match info (compact layout for small regions)
     text_color = (0, 255, 0) if is_match else (0, 0, 255)
     cv2.putText(
         output,
-        f"Template: {template_name}",
-        (10, 25),
+        f"T: {template_name}",
+        (5, 12),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.5,
+        0.35,
         (255, 255, 0),  # Yellow for visibility
         1,
     )
     cv2.putText(
         output,
-        f"Conf: {confidence:.3f} / Thresh: {threshold:.2f}",
-        (10, 50),
+        f"Conf: {confidence:.3f} Thr: {threshold:.2f}",
+        (5, 26),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
+        0.35,
         text_color,
-        2,
+        1,
     )
     cv2.putText(
         output,
-        f"Region: ({region.x_start},{region.y_start})-({region.x_end},{region.y_end})",
-        (10, 75),
+        f"R: ({region.x_start},{region.y_start})-({region.x_end},{region.y_end})",
+        (5, 40),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.5,
+        0.35,
         (255, 255, 255),
         1,
     )
     cv2.putText(
         output,
-        f"Match: {'YES' if is_match else 'NO'}",
-        (10, 100),
+        f"{'MATCH' if is_match else 'NO MATCH'}",
+        (5, 54),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
+        0.4,
         text_color,
-        2,
+        1,
     )
     
     return output
