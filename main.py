@@ -2,17 +2,25 @@
 Main entry point for the screen2serial bot.
 
 This is a thin orchestrator that:
-1. Sets up hardware (serial, screen capture)
-2. Loads templates
+1. Parses command-line arguments to select a macro
+2. Sets up serial connection
 3. Sets up keyboard input
-4. Runs the selected macro (woodcutting by default)
+4. Dispatches to the selected macro
+
+Usage:
+    python main.py --macro woodcutting
+    python main.py --macro enchanting
+    python main.py --list  # List available macros
 """
+
+import argparse
+import sys
 
 from pynput import keyboard
 
 import config
-from logic import load_template, create_screen_capturer, validate_template_size, open_serial
-from macros.woodcutting import run_woodcutting
+from logic import open_serial
+from macros import get_available_macros, get_macro, get_macro_description
 
 
 # Global flag for keyboard control
@@ -44,68 +52,86 @@ def check_keyboard_flags() -> tuple[bool, bool]:
     return start, stop
 
 
+def list_macros() -> None:
+    """Print available macros and exit."""
+    print("\nAvailable macros:")
+    print("-" * 40)
+    for name in get_available_macros():
+        description = get_macro_description(name)
+        print(f"  {name:15} - {description}")
+    print("-" * 40)
+    print("\nUsage: python main.py --macro <name>")
+    print("")
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Screen2Serial Bot - Automation via Arduino",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    python main.py --macro woodcutting
+    python main.py --macro enchanting --debug
+    python main.py --list
+        """,
+    )
+    
+    parser.add_argument(
+        "--macro", "-m",
+        type=str,
+        help="Name of the macro to run",
+    )
+    
+    parser.add_argument(
+        "--list", "-l",
+        action="store_true",
+        help="List available macros and exit",
+    )
+    
+    parser.add_argument(
+        "--debug", "-d",
+        action="store_true",
+        help="Enable debug mode",
+    )
+    
+    return parser.parse_args()
+
+
 def main() -> None:
     """Main entry point."""
-    # Load templates
-    template = load_template(config.TEMPLATE_PATH)
+    args = parse_args()
     
-    # Load resource template for inventory scanning
-    try:
-        resource_template = load_template(config.RESOURCE_TEMPLATE_PATH)
-        print(f"[INFO] Loaded resource template: {config.RESOURCE_TEMPLATE_PATH}")
-    except RuntimeError:
-        print(f"[WARNING] Resource template not found: {config.RESOURCE_TEMPLATE_PATH}")
-        print("[WARNING] Dropping will be skipped if no resource template is available")
-        resource_template = None
+    # Handle --list flag
+    if args.list:
+        list_macros()
+        sys.exit(0)
     
-    # Calculate region dimensions
-    region_width = config.REGION_X_END - config.REGION_X_START
-    region_height = config.REGION_Y_END - config.REGION_Y_START
+    # Require --macro if not listing
+    if not args.macro:
+        print("Error: --macro is required. Use --list to see available macros.")
+        sys.exit(1)
     
-    # Validate template size
-    validate_template_size(template, region_width, region_height)
+    # Get the macro function
+    macro_fn = get_macro(args.macro)
+    if macro_fn is None:
+        print(f"Error: Unknown macro '{args.macro}'")
+        list_macros()
+        sys.exit(1)
     
-    # Initialize screen capture and serial
-    sct, monitor = create_screen_capturer()
+    # Initialize serial connection
     ser = open_serial(config.SERIAL_PORT, config.BAUD_RATE)
     
     # Start keyboard listener
     listener = keyboard.Listener(on_press=on_key_press)
     listener.start()
     
-    print("")
-    print("=" * 50)
-    print("  SCREEN2SERIAL BOT - WOODCUTTING")
-    print("=" * 50)
-    print(f"Region: ({config.REGION_X_START}, {config.REGION_Y_START}) to ({config.REGION_X_END}, {config.REGION_Y_END})")
-    print(f"Region size: {region_width}x{region_height}")
-    print(f"Inventory: ({config.INVENTORY_X_START}, {config.INVENTORY_Y_START}) to ({config.INVENTORY_X_END}, {config.INVENTORY_Y_END})")
-    print("")
-    print("Controls:")
-    print("  Page Up   = Start (begin searching)")
-    print("  Page Down = Stop (return to warmup)")
-    print("  q         = Quit (in debug window)")
-    print("")
-    print("State: WARMUP - Press Page Up to start")
-    print("=" * 50)
-    print("")
-    
     try:
-        # Run the woodcutting macro (it manages its own state internally)
-        run_woodcutting(
-            sct=sct,
-            monitor=monitor,
+        # Run the selected macro
+        macro_fn(
             ser=ser,
-            template=template,
-            resource_template=resource_template,
-            region_x_start=config.REGION_X_START,
-            region_y_start=config.REGION_Y_START,
-            region_x_end=config.REGION_X_END,
-            region_y_end=config.REGION_Y_END,
-            match_threshold=config.MATCH_THRESHOLD,
-            search_scan_interval=config.SEARCH_SCAN_INTERVAL,
             check_keyboard=check_keyboard_flags,
-            debug=config.DEBUG,
+            debug=args.debug,
         )
     finally:
         # Cleanup

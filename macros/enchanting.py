@@ -385,6 +385,10 @@ def run_enchanting(
     """
     Run the enchanting macro loop.
     
+    This macro is fully self-contained:
+    - Creates screen capture internally
+    - Reads config values internally
+    
     Args:
         ser: Serial connection for mouse control
         check_keyboard: Function that returns (should_start, should_stop) tuple
@@ -402,7 +406,20 @@ def run_enchanting(
     last_loop_time = time.time()
     last_status_print = 0
     
-    print("[ENCHANTING] Macro initialized. Press PageUp to start, PageDown to stop.")
+    # Print banner
+    print("")
+    print("=" * 50)
+    print("  SCREEN2SERIAL BOT - ENCHANTING")
+    print("=" * 50)
+    print(f"Inventory: ({config.INVENTORY_X_START}, {config.INVENTORY_Y_START}) to ({config.INVENTORY_X_END}, {config.INVENTORY_Y_END})")
+    print("")
+    print("Controls:")
+    print("  Page Up   = Start enchanting")
+    print("  Page Down = Stop (return to warmup)")
+    print("")
+    print("State: WARMUP - Press Page Up to start")
+    print("=" * 50)
+    print("")
     
     while True:
         now = time.time()

@@ -9,6 +9,8 @@ This macro is fully self-contained with its own:
 - State definitions
 - Handler functions
 - Main loop
+- Template loading
+- Screen capture setup
 """
 
 import time
@@ -28,6 +30,9 @@ from logic import (
     increment_actions,
     increment_cycles,
     # Capture
+    create_screen_capturer,
+    load_template,
+    validate_template_size,
     grab_region,
     preprocess_crop,
     match_template,
@@ -45,6 +50,13 @@ from logic import (
     random_delay,
 )
 import config
+
+
+# =========================
+# WOODCUTTING TEMPLATES
+# =========================
+TREE_TEMPLATE_PATH = "images/resource/tree.png"
+WOOD_TEMPLATE_PATH = "images/resource/wood.png"
 
 
 # =========================
@@ -258,22 +270,8 @@ def create_woodcutting_state() -> tuple[AppState, Stats]:
 
 
 def run_woodcutting(
-    # Screen capture
-    sct,
-    monitor,
     # Serial connection
     ser,
-    # Templates
-    template: np.ndarray,
-    resource_template: np.ndarray | None,
-    # Region config
-    region_x_start: int,
-    region_y_start: int,
-    region_x_end: int,
-    region_y_end: int,
-    # Matching config
-    match_threshold: float,
-    search_scan_interval: float,
     # Keyboard input function (returns should_start, should_stop)
     check_keyboard: callable,
     # Debug options
@@ -282,21 +280,64 @@ def run_woodcutting(
     """
     Run the woodcutting macro loop.
     
+    This macro is fully self-contained:
+    - Loads its own templates
+    - Creates screen capture
+    - Reads config values internally
+    
     Args:
-        sct: Screen capture context (mss instance)
-        monitor: Monitor info for screen capture
         ser: Serial connection for mouse control
-        template: Template image for tree detection
-        resource_template: Template for log detection in inventory (optional)
-        region_x_start, region_y_start, region_x_end, region_y_end: Detection region
-        match_threshold: Confidence threshold for template matching
-        search_scan_interval: How often to scan while searching (seconds)
         check_keyboard: Function that returns (should_start, should_stop) tuple
         debug: Enable debug mode with visual windows
         
     Returns:
         Final (state, stats) tuple when the loop exits
     """
+    # Load templates
+    template = load_template(TREE_TEMPLATE_PATH)
+    
+    try:
+        resource_template = load_template(WOOD_TEMPLATE_PATH)
+        print(f"[WOODCUTTING] Loaded resource template: {WOOD_TEMPLATE_PATH}")
+    except RuntimeError:
+        print(f"[WOODCUTTING] Resource template not found: {WOOD_TEMPLATE_PATH}")
+        print("[WOODCUTTING] Dropping will be skipped")
+        resource_template = None
+    
+    # Initialize screen capture
+    sct, monitor = create_screen_capturer()
+    
+    # Read config values
+    region_x_start = config.REGION_X_START
+    region_y_start = config.REGION_Y_START
+    region_x_end = config.REGION_X_END
+    region_y_end = config.REGION_Y_END
+    match_threshold = config.MATCH_THRESHOLD
+    search_scan_interval = config.SEARCH_SCAN_INTERVAL
+    
+    # Calculate region dimensions and validate template
+    region_width = region_x_end - region_x_start
+    region_height = region_y_end - region_y_start
+    validate_template_size(template, region_width, region_height)
+    
+    # Print banner
+    print("")
+    print("=" * 50)
+    print("  SCREEN2SERIAL BOT - WOODCUTTING")
+    print("=" * 50)
+    print(f"Region: ({region_x_start}, {region_y_start}) to ({region_x_end}, {region_y_end})")
+    print(f"Region size: {region_width}x{region_height}")
+    print(f"Inventory: ({config.INVENTORY_X_START}, {config.INVENTORY_Y_START}) to ({config.INVENTORY_X_END}, {config.INVENTORY_Y_END})")
+    print("")
+    print("Controls:")
+    print("  Page Up   = Start (begin searching)")
+    print("  Page Down = Stop (return to warmup)")
+    print("  q         = Quit (in debug window)")
+    print("")
+    print("State: WARMUP - Press Page Up to start")
+    print("=" * 50)
+    print("")
+    
     # Initialize woodcutting-specific state
     state, stats = create_woodcutting_state()
     
