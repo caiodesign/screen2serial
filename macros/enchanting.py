@@ -14,6 +14,8 @@ This macro enchants jade amulets using the level 2 jewellery enchant spell.
 import time
 from dataclasses import dataclass
 
+import config
+
 from logic import (
     # State
     AppState,
@@ -29,12 +31,9 @@ from logic import (
     increment_cycles,
     # Capture
     create_screen_capturer,
-    # Vision
+    # Vision (non-debug)
     Region,
     Point,
-    find_all_templates,
-    find_template,
-    template_exists,
     get_last_item_bottom_right,
     # Actions
     click_point,
@@ -42,7 +41,20 @@ from logic import (
     open_inventory,
     open_magic_tab,
 )
-import config
+
+# Import vision functions - use debug versions when DEBUG=True
+if config.DEBUG:
+    from logic import (
+        find_template_debug as find_template,
+        find_all_templates_debug as find_all_templates,
+        template_exists_debug as template_exists,
+    )
+else:
+    from logic import (
+        find_template,
+        find_all_templates,
+        template_exists,
+    )
 
 
 # =========================

@@ -95,7 +95,7 @@ MENU_MATCH_THRESHOLD = 0.80
 
 # Enchanting thresholds
 ENCHANT_ITEM_THRESHOLD = 0.70
-ENCHANT_SPELL_THRESHOLD = 0.60  # Lowered for enchant level popup detection
+ENCHANT_SPELL_THRESHOLD = 0.50  # Lowered for enchant level popup detection
 
 # Enchanting timing (fast: 0.2-0.4s)
 ENCHANT_CLICK_DELAY_MIN = 0.2
@@ -107,3 +107,8 @@ ENCHANT_CLICK_DELAY_MAX = 0.4
 DEBUG = False
 DEBUG_DIR = "debug_captures"
 DEBUG_SAVE_MODE = "fail"  # "fail" or "all"
+
+# Debug window mode for vision_debug.py
+# "live" - Windows update on every vision call, non-blocking, press 'q' to close
+# "pause_on_fail" - Only shows window when match fails, pauses until keypress
+DEBUG_WINDOW_MODE = "live"

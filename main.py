@@ -20,7 +20,12 @@ from pynput import keyboard
 
 import config
 from logic import open_serial
-from macros import get_available_macros, get_macro, get_macro_description
+
+
+def _import_macros():
+    """Import macros after config.DEBUG is set."""
+    from macros import get_available_macros, get_macro, get_macro_description
+    return get_available_macros, get_macro, get_macro_description
 
 
 # Global flag for keyboard control
@@ -52,7 +57,7 @@ def check_keyboard_flags() -> tuple[bool, bool]:
     return start, stop
 
 
-def list_macros() -> None:
+def list_macros_internal(get_available_macros, get_macro_description) -> None:
     """Print available macros and exit."""
     print("\nAvailable macros:")
     print("-" * 40)
@@ -102,9 +107,17 @@ def main() -> None:
     """Main entry point."""
     args = parse_args()
     
+    # Set config.DEBUG based on CLI flag BEFORE importing macros
+    # This ensures vision_debug imports are used when --debug is passed
+    if args.debug:
+        config.DEBUG = True
+    
+    # Now import macros (after config.DEBUG is set)
+    get_available_macros, get_macro, get_macro_description = _import_macros()
+    
     # Handle --list flag
     if args.list:
-        list_macros()
+        list_macros_internal(get_available_macros, get_macro_description)
         sys.exit(0)
     
     # Require --macro if not listing
@@ -116,8 +129,12 @@ def main() -> None:
     macro_fn = get_macro(args.macro)
     if macro_fn is None:
         print(f"Error: Unknown macro '{args.macro}'")
-        list_macros()
+        list_macros_internal(get_available_macros, get_macro_description)
         sys.exit(1)
+    
+    # Print debug status
+    if config.DEBUG:
+        print(f"[DEBUG] Debug mode ENABLED (window mode: {config.DEBUG_WINDOW_MODE})")
     
     # Initialize serial connection
     ser = open_serial(config.SERIAL_PORT, config.BAUD_RATE)

@@ -56,6 +56,15 @@ from .vision import (
     get_last_item_bottom_right,
     find_template,
     template_exists,
+    count_template,
+)
+
+from .vision_debug import (
+    find_template as find_template_debug,
+    find_all_templates as find_all_templates_debug,
+    template_exists as template_exists_debug,
+    count_template as count_template_debug,
+    find_closest_template_debug,
 )
 
 from .actions import (
@@ -119,6 +128,13 @@ __all__ = [
     "get_last_item_bottom_right",
     "find_template",
     "template_exists",
+    "count_template",
+    # Vision Debug (proxy functions with visualization)
+    "find_template_debug",
+    "find_all_templates_debug",
+    "template_exists_debug",
+    "count_template_debug",
+    "find_closest_template_debug",
     # Actions
     "get_mouse_position",
     "random_delay",
