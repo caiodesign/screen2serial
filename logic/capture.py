@@ -32,6 +32,30 @@ def load_template(path: str) -> np.ndarray:
     return template
 
 
+def crop_template(
+    template: np.ndarray,
+    top: int = 0,
+    bottom: int = 0,
+    left: int = 0,
+    right: int = 0,
+) -> np.ndarray:
+    """
+    Crop a template by removing pixels from each edge.
+
+    Use when stacked labels or borders interfere with matching.
+    """
+    h, w = template.shape[:2]
+    if top < 0 or bottom < 0 or left < 0 or right < 0:
+        raise ValueError("crop_template values must be >= 0")
+    if top + bottom >= h or left + right >= w:
+        raise ValueError("crop_template crop exceeds template size")
+    if top == bottom == left == right == 0:
+        return template
+    return template[top : h - bottom, left : w - right]
+
+
+
+
 def create_screen_capturer() -> tuple[mss, dict]:
     """Create mss screen capturer and get primary monitor."""
     sct = mss()

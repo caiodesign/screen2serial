@@ -39,6 +39,7 @@ from .serial_io import (
 
 from .capture import (
     load_template,
+    crop_template,
     create_screen_capturer,
     grab_region,
     preprocess_crop,
@@ -116,6 +117,7 @@ __all__ = [
     "compute_hesitation",
     # Capture
     "load_template",
+    "crop_template",
     "create_screen_capturer",
     "grab_region",
     "preprocess_crop",

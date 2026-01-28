@@ -37,11 +37,14 @@ from logic import (
     Region,
     Point,
     get_last_item_bottom_right,
+    load_template,
+    crop_template,
     # Actions
     click_point,
     random_delay,
     open_inventory,
     open_magic_tab,
+    press_key,
 )
 
 # Import vision functions - use debug versions when DEBUG=True
@@ -95,6 +98,13 @@ ALL_ENCH_STATES = (
 # =========================
 # ENCHANTING CONFIG
 # =========================
+SPELL_SCAN_Y_LIMIT = 60
+MENU_MATCH_THRESHOLD = 0.80
+ENCHANT_ITEM_THRESHOLD = 0.60
+ENCHANT_SPELL_THRESHOLD = 0.60
+ENCHANT_CLICK_DELAY_MIN = 0.84
+ENCHANT_CLICK_DELAY_MAX = 0.95
+
 INVENTORY_REGION = Region(
     x_start=config.INVENTORY_X_START,
     y_start=config.INVENTORY_Y_START,
@@ -107,7 +117,7 @@ SPELL_REGION = Region(
     x_start=config.INVENTORY_X_START,
     y_start=config.INVENTORY_Y_START,
     x_end=config.INVENTORY_X_END,
-    y_end=config.INVENTORY_Y_START + config.SPELL_SCAN_Y_LIMIT,
+    y_end=config.INVENTORY_Y_START + SPELL_SCAN_Y_LIMIT,
 )
 
 # Menu region (bottom bar where tabs are located)
@@ -118,14 +128,27 @@ MENU_REGION = Region(
     y_end=config.MENU_REGION_Y_END,
 )
 
-# Banker search region (central area of game screen, excluding inventory and chat)
-# X: slices 2 & 3 of 4 (331-993px)
-# Y: slices 2-5 of 6 (133-667px)
+# Banker search region (generic detection area)
 BANKER_REGION = Region(
-    x_start=config.BANKER_REGION_X_START,
-    y_start=config.BANKER_REGION_Y_START,
-    x_end=config.BANKER_REGION_X_END,
-    y_end=config.BANKER_REGION_Y_END,
+    x_start=config.REGION_X_START,
+    y_start=config.REGION_Y_START,
+    x_end=config.REGION_X_END,
+    y_end=config.REGION_Y_END,
+)
+
+# Bank interface regions
+BANK_INTERFACE_REGION = Region(
+    x_start=config.BANK_INTERFACE_X_START,
+    y_start=config.BANK_INTERFACE_Y_START,
+    x_end=config.BANK_INTERFACE_X_END,
+    y_end=config.BANK_INTERFACE_Y_END,
+)
+
+BANK_CONTROLS_REGION = Region(
+    x_start=config.BANK_INTERFACE_X_START,
+    y_start=config.BANK_CONTROLS_Y_START,
+    x_end=config.BANK_INTERFACE_X_END,
+    y_end=config.BANK_CONTROLS_Y_END,
 )
 
 
@@ -137,6 +160,7 @@ class EnchantingContext:
     enchant_level_pos: Point | None
     banker_pos: Point | None  # Position of banker NPC when found
     bank_wait_start: float | None  # Timestamp when we started waiting for bank
+    bank_jade_template: object | None  # Cropped template for bank stacks
     
     @classmethod
     def create(cls) -> "EnchantingContext":
@@ -146,6 +170,7 @@ class EnchantingContext:
             enchant_level_pos=None,
             banker_pos=None,
             bank_wait_start=None,
+            bank_jade_template=None,
         )
 
 
@@ -179,7 +204,7 @@ def handle_check_inventory(
         sct, monitor,
         config.INVENTORY_OPENED_TEMPLATE,
         MENU_REGION,
-        config.MENU_MATCH_THRESHOLD,
+        MENU_MATCH_THRESHOLD,
     )
     
     if is_open:
@@ -188,7 +213,7 @@ def handle_check_inventory(
     else:
         print("[CHECK_INVENTORY] Inventory not open - pressing ESC...")
         open_inventory(ser)
-        random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
+        random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
         # Stay in this state to verify it opened
         return state, stats
 
@@ -206,7 +231,7 @@ def handle_scan_items(
         sct, monitor,
         config.JADE_AMULET_TEMPLATE,
         INVENTORY_REGION,
-        config.ENCHANT_ITEM_THRESHOLD,
+        ENCHANT_ITEM_THRESHOLD,
     )
     
     if not items:
@@ -234,7 +259,7 @@ def handle_open_magic(
     """Open magic interface by pressing KEY_MAGIC."""
     print("[OPEN_MAGIC] Opening magic interface...")
     open_magic_tab(ser)
-    random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
+    random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
     return transition_state(state, now, ENCH_FIND_SPELL), stats
 
 
@@ -257,7 +282,7 @@ def handle_find_spell(
         sct, monitor,
         config.ENCHANT_SPELL_TEMPLATE,
         SPELL_REGION,
-        config.ENCHANT_SPELL_THRESHOLD,
+        ENCHANT_SPELL_THRESHOLD,
     )
     
     if spell_pos is None:
@@ -267,7 +292,7 @@ def handle_find_spell(
     
     print(f"[FIND_SPELL] Found enchant spell at ({spell_pos.x}, {spell_pos.y}) - clicking...")
     click_point(ser, spell_pos)
-    random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
+    random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
     
     return transition_state(state, now, ENCH_FIND_LEVEL), increment_clicks(stats)
 
@@ -286,7 +311,7 @@ def handle_find_level(
         sct, monitor,
         config.ENCHANT_LEVEL_2_TEMPLATE,
         INVENTORY_REGION,
-        config.ENCHANT_SPELL_THRESHOLD,
+        ENCHANT_SPELL_THRESHOLD,
     )
     
     if level_pos is None:
@@ -298,7 +323,7 @@ def handle_find_level(
     
     print(f"[FIND_LEVEL] Found level 2 enchant at ({level_pos.x}, {level_pos.y}) - clicking...")
     click_point(ser, level_pos)
-    random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
+    random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
     
     return transition_state(state, now, ENCH_LOOP), increment_clicks(stats)
 
@@ -328,7 +353,7 @@ def handle_enchant_loop(
     
     # 1. Click the last item position (always the same slot)
     click_point(ser, ctx.last_item_pos)
-    random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
+    random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
     
     # 2. Decrement counter (item is now enchanted)
     ctx.items_remaining -= 1
@@ -336,7 +361,7 @@ def handle_enchant_loop(
     # 3. Click enchant level 2 again (use saved position, no rescan)
     if ctx.items_remaining > 0 and ctx.enchant_level_pos is not None:
         click_point(ser, ctx.enchant_level_pos)
-        random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
+        random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
     
     return state, increment_actions(stats)
 
@@ -392,9 +417,14 @@ def handle_click_banker(
     print(f"[CLICK_BANKER] Clicking banker at ({ctx.banker_pos.x}, {ctx.banker_pos.y})")
     click_point(ser, ctx.banker_pos)
     random_delay(config.BANK_CLICK_DELAY_MIN, config.BANK_CLICK_DELAY_MAX)
+
+    # Dialogue flow: space, wait, then option 1
+    press_key(ser, config.KEY_CHAT_CONFIRM)
+    time.sleep(1.0)
+    press_key(ser, config.KEY_CHAT_OPTION_1)
     
     # Start waiting for bank to open
-    ctx.bank_wait_start = now
+    ctx.bank_wait_start = time.time()
     return transition_state(state, now, ENCH_WAIT_BANK), increment_clicks(stats)
 
 
@@ -402,34 +432,64 @@ def handle_wait_bank(
     state: AppState,
     stats: Stats,
     now: float,
+    ser,
     sct,
     monitor,
     ctx: EnchantingContext,
 ) -> tuple[AppState, Stats]:
     """Wait for bank interface to open."""
-    # TODO: Add bank interface detection template
-    # For now, just wait a fixed time and assume it opened
-    
     if ctx.bank_wait_start is None:
         ctx.bank_wait_start = now
     
     elapsed = now - ctx.bank_wait_start
     
+    is_bank_open = template_exists(
+        sct, monitor,
+        config.BANK_CONTROLS_TEMPLATE,
+        BANK_CONTROLS_REGION,
+        config.BANK_CONTROLS_MATCH_THRESHOLD,
+    )
+
+    if is_bank_open:
+        print("[WAIT_BANK] Bank interface detected - banking items...")
+
+        # Deposit enchanted amulets using saved slot position
+        if ctx.last_item_pos is not None:
+            click_point(ser, ctx.last_item_pos)
+            random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
+            stats = increment_clicks(stats)
+        else:
+            print("[WAIT_BANK] Warning: No last item position saved for deposit")
+
+        # Withdraw jade amulets from bank (scan entire bank interface)
+        if ctx.bank_jade_template is None:
+            ctx.bank_jade_template = crop_template(
+                load_template(config.JADE_AMULET_TEMPLATE),
+                top=config.BANK_STACK_CROP_TOP_PX,
+            )
+
+        jade_pos = find_template(
+            sct, monitor,
+            ctx.bank_jade_template,
+            BANK_INTERFACE_REGION,
+            ENCHANT_ITEM_THRESHOLD,
+        )
+
+        if jade_pos is not None:
+            click_point(ser, jade_pos)
+            random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
+            stats = increment_clicks(stats)
+        else:
+            print("[WAIT_BANK] Warning: Jade amulet not found in bank")
+
+        ctx.bank_wait_start = None
+        return transition_state(state, now, ENCH_CHECK_INVENTORY), stats
+
     # Timeout - try clicking banker again
     if elapsed > config.BANK_WAIT_TIMEOUT:
         print(f"[WAIT_BANK] Timeout after {elapsed:.1f}s - retrying banker click")
         ctx.bank_wait_start = None
         return transition_state(state, now, ENCH_FIND_BANKER), stats
-    
-    # TODO: Replace with actual bank interface detection
-    # For now, assume bank opened after 2 seconds
-    if elapsed >= 2.0:
-        print("[WAIT_BANK] Bank should be open (TODO: add bank interface detection)")
-        # TODO: Transition to deposit/withdraw states
-        # For now, go back to warmup as placeholder
-        print("[WAIT_BANK] Banking logic complete - returning to warmup (TODO: implement deposit/withdraw)")
-        ctx.bank_wait_start = None
-        return transition_state(state, now, WARMUP), stats
     
     return state, stats
 
@@ -474,7 +534,7 @@ def process_enchanting_state(
     elif state.name == ENCH_CLICK_BANKER:
         return handle_click_banker(state, stats, now, ser, ctx)
     elif state.name == ENCH_WAIT_BANK:
-        return handle_wait_bank(state, stats, now, sct, monitor, ctx)
+        return handle_wait_bank(state, stats, now, ser, sct, monitor, ctx)
     
     return state, stats
 
@@ -529,6 +589,12 @@ def run_enchanting(
     
     # Initialize enchanting-specific state
     state, stats, ctx = create_enchanting_state()
+
+    # Preload cropped jade template for bank matching
+    ctx.bank_jade_template = crop_template(
+        load_template(config.JADE_AMULET_TEMPLATE),
+        top=config.BANK_STACK_CROP_TOP_PX,
+    )
     
     last_loop_time = time.time()
     last_status_print = 0
