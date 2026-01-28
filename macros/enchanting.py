@@ -71,6 +71,7 @@ ENCH_LOOP = "ench_loop"
 ENCH_DONE = "ench_done"
 
 # Banking states
+ENCH_NEED_BANK = "ench_need_bank"
 ENCH_FIND_BANKER = "ench_find_banker"
 ENCH_CLICK_BANKER = "ench_click_banker"
 ENCH_WAIT_BANK = "ench_wait_bank"
@@ -84,6 +85,7 @@ ALL_ENCH_STATES = (
     ENCH_FIND_LEVEL,
     ENCH_LOOP,
     ENCH_DONE,
+    ENCH_NEED_BANK,
     ENCH_FIND_BANKER,
     ENCH_CLICK_BANKER,
     ENCH_WAIT_BANK,
