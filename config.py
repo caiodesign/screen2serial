@@ -78,7 +78,7 @@ ENCHANT_SPELL_TEMPLATE = "images/magic/magic_jewell_enchant.png"
 ENCHANT_LEVEL_2_TEMPLATE = "images/magic/magic_jewell_enchant_level_2.png"
 
 # Spell scan region (first 40px Y of inventory area for finding spells)
-SPELL_SCAN_Y_LIMIT = 40
+SPELL_SCAN_Y_LIMIT = 60
 
 # Menu region (bottom bar where inventory/magic/etc tabs are)
 MENU_REGION_X_START = 1030

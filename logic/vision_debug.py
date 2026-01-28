@@ -261,9 +261,8 @@ def _draw_match_result(
 
 
 def _show_debug_visualization(
-    sct,
-    monitor: dict,
-    template,
+    gray: np.ndarray,
+    tmpl: np.ndarray,
     region: Region,
     threshold: float,
     result: Any,
@@ -271,12 +270,15 @@ def _show_debug_visualization(
 ) -> None:
     """
     Send debug visualization to the background window thread.
-    """
-    # Get template as numpy array
-    tmpl = _get_template(template)
     
-    # Capture the region for visualization
-    gray = _capture_region(sct, monitor, region)
+    Args:
+        gray: Pre-captured grayscale region (same one used for matching)
+        tmpl: Pre-loaded template (same one used for matching)
+        region: Region info for display
+        threshold: Threshold used for matching
+        result: Result from the vision function
+        is_match: Whether the match was successful
+    """
     
     # Draw match result on region
     region_display = _draw_match_result(gray, tmpl, result, region, threshold, is_match)
@@ -325,10 +327,19 @@ def with_debug_window(func: Callable) -> Callable:
     
     The decorated function will show debug windows after each call,
     displaying the captured region and template used for matching.
+    
+    IMPORTANT: Captures screenshot BEFORE calling the function so we display
+    exactly what was (approximately) used for matching, not a later frame.
     """
     @functools.wraps(func)
     def wrapper(sct, monitor, template, region: Region, threshold: float = 0.8, *args, **kwargs):
-        # Call the original pure function
+        # Capture BEFORE calling the function - this is what we'll display
+        # This ensures we show the same (or very close) frame used for matching
+        tmpl = _get_template(template)
+        gray = _capture_region(sct, monitor, region)
+        
+        # Call the original pure function (it will do its own capture internally,
+        # but timing should be nearly identical)
         result = func(sct, monitor, template, region, threshold, *args, **kwargs)
         
         # Determine if it was a match
@@ -345,8 +356,8 @@ def with_debug_window(func: Callable) -> Callable:
         else:
             is_match = result is not None
         
-        # Show debug visualization (non-blocking, uses background thread)
-        _show_debug_visualization(sct, monitor, template, region, threshold, result, is_match)
+        # Show debug visualization using the pre-captured frame
+        _show_debug_visualization(gray, tmpl, region, threshold, result, is_match)
         
         return result
     
@@ -374,9 +385,13 @@ def find_closest_template_debug(
     threshold: float = 0.8,
 ) -> Point | None:
     """Debug wrapper for find_closest_template (has extra from_pos param)."""
+    # Capture BEFORE calling the function
+    tmpl = _get_template(template)
+    gray = _capture_region(sct, monitor, region)
+    
     result = _find_closest_template(sct, monitor, template, region, from_pos, threshold)
     is_match = result is not None
-    _show_debug_visualization(sct, monitor, template, region, threshold, result, is_match)
+    _show_debug_visualization(gray, tmpl, region, threshold, result, is_match)
     return result
 
 
