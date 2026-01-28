@@ -3,7 +3,7 @@ import numpy as np
 from datetime import datetime
 from pathlib import Path
 
-from state import StateName
+# State name is now just a string type
 
 
 def ensure_debug_dir(debug_dir: str) -> None:
@@ -18,7 +18,7 @@ def should_save_debug(debug: bool, save_mode: str, matched: bool) -> bool:
     return save_mode == "all" or not matched
 
 
-def make_debug_base_path(debug_dir: str, state: StateName, confidence: float) -> str:
+def make_debug_base_path(debug_dir: str, state: str, confidence: float) -> str:
     """Generate base path for debug files."""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return f"{debug_dir}/{ts}_{state}_{confidence:.3f}"

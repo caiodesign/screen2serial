@@ -1,7 +1,7 @@
 # =========================
 # PATHS & SERIAL
 # =========================
-TEMPLATE_PATH = "family.png"
+TEMPLATE_PATH = "images/family.png"
 SERIAL_PORT = "COM5"
 BAUD_RATE = 9600
 
@@ -39,7 +39,7 @@ INVENTORY_Y_START = 652
 INVENTORY_Y_END = 978
 
 # Inventory templates
-RESOURCE_TEMPLATE_PATH = "resource.png"
+RESOURCE_TEMPLATE_PATH = "images/resource.png"
 
 # Inventory matching threshold
 INVENTORY_RESOURCE_THRESHOLD = 0.70  # similarity threshold for resource detection
@@ -51,10 +51,22 @@ DROP_MOVE_DELAY = 1.3    # Delay before moving to the next item (seconds)
 DROP_CLICK_DELAY = 0.3   # Delay after clicking before moving to next item
 
 # =========================
-# KEYBOARD CONTROLS
+# KEYBOARD CONTROLS (Bot)
 # =========================
 START_KEY = "page_up"    # Key to start the bot (warmup -> searching)
 STOP_KEY = "page_down"   # Key to stop the bot (any state -> warmup)
+
+# =========================
+# KEYBINDINGS (Game UI Tabs)
+# =========================
+KEY_COMBAT = "f1"        # Combat options tab
+KEY_SKILLS = "f2"        # Skills tab
+KEY_QUESTS = "f3"        # Quest list tab
+KEY_INVENTORY = "esc"    # Inventory tab
+KEY_EQUIPMENT = "f4"     # Worn equipment tab
+KEY_PRAYER = "f5"        # Prayer tab
+KEY_MAGIC = "f6"         # Magic spellbook tab
+KEY_SETTINGS = "f10"     # Settings tab
 
 # =========================
 # DEBUG
