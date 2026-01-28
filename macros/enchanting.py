@@ -4,11 +4,13 @@ Enchanting macro for screen2serial bot.
 State machine:
     WARMUP -> CHECK_INVENTORY -> SCAN_ITEMS -> OPEN_MAGIC ->
     FIND_ENCHANT_SPELL -> FIND_ENCHANT_LEVEL -> ENCHANT_LOOP ->
-    (loop until count=0) -> DONE
+    (loop until count=0) -> FIND_BANKER -> CLICK_BANKER -> 
+    WAIT_BANK -> ... -> CHECK_INVENTORY (cycle)
     
     Any state -> (PageDown) -> WARMUP
 
 This macro enchants jade amulets using the level 2 jewellery enchant spell.
+After all items are enchanted, it finds the banker to deposit/withdraw.
 """
 
 import time
@@ -66,8 +68,12 @@ ENCH_OPEN_MAGIC = "ench_open_magic"
 ENCH_FIND_SPELL = "ench_find_spell"
 ENCH_FIND_LEVEL = "ench_find_level"
 ENCH_LOOP = "ench_loop"
-ENCH_NEED_BANK = "ench_need_bank"
 ENCH_DONE = "ench_done"
+
+# Banking states
+ENCH_FIND_BANKER = "ench_find_banker"
+ENCH_CLICK_BANKER = "ench_click_banker"
+ENCH_WAIT_BANK = "ench_wait_bank"
 
 ALL_ENCH_STATES = (
     WARMUP,
@@ -77,8 +83,10 @@ ALL_ENCH_STATES = (
     ENCH_FIND_SPELL,
     ENCH_FIND_LEVEL,
     ENCH_LOOP,
-    ENCH_NEED_BANK,
     ENCH_DONE,
+    ENCH_FIND_BANKER,
+    ENCH_CLICK_BANKER,
+    ENCH_WAIT_BANK,
 )
 
 
@@ -108,6 +116,16 @@ MENU_REGION = Region(
     y_end=config.MENU_REGION_Y_END,
 )
 
+# Banker search region (central area of game screen, excluding inventory and chat)
+# X: slices 2 & 3 of 4 (331-993px)
+# Y: slices 2-5 of 6 (133-667px)
+BANKER_REGION = Region(
+    x_start=config.BANKER_REGION_X_START,
+    y_start=config.BANKER_REGION_Y_START,
+    x_end=config.BANKER_REGION_X_END,
+    y_end=config.BANKER_REGION_Y_END,
+)
+
 
 @dataclass
 class EnchantingContext:
@@ -115,6 +133,8 @@ class EnchantingContext:
     last_item_pos: Point | None  # Fixed position to click (always the same slot)
     items_remaining: int
     enchant_level_pos: Point | None
+    banker_pos: Point | None  # Position of banker NPC when found
+    bank_wait_start: float | None  # Timestamp when we started waiting for bank
     
     @classmethod
     def create(cls) -> "EnchantingContext":
@@ -122,6 +142,8 @@ class EnchantingContext:
             last_item_pos=None,
             items_remaining=0,
             enchant_level_pos=None,
+            banker_pos=None,
+            bank_wait_start=None,
         )
 
 
@@ -186,8 +208,8 @@ def handle_scan_items(
     )
     
     if not items:
-        print("[SCAN_ITEMS] No jade amulets found - need to bank")
-        return transition_state(state, now, ENCH_NEED_BANK), stats
+        print("[SCAN_ITEMS] No jade amulets found - looking for banker...")
+        return transition_state(state, now, ENCH_FIND_BANKER), stats
     
     # Find the last item (bottom-right priority) and save its position
     # We will click this SAME position every time (item gets enchanted in place)
@@ -317,25 +339,96 @@ def handle_enchant_loop(
     return state, increment_actions(stats)
 
 
-def handle_need_bank(
-    state: AppState,
-    stats: Stats,
-    now: float,
-) -> tuple[AppState, Stats]:
-    """Handle when no items found - need to interact with banker."""
-    print("[NEED_BANK] No items to enchant - banking logic not yet implemented")
-    # Future: Add banking logic here
-    return state, stats
-
-
 def handle_done(
     state: AppState,
     stats: Stats,
     now: float,
 ) -> tuple[AppState, Stats]:
-    """Handle completion - all items enchanted."""
-    print("[DONE] Enchanting complete!")
-    # Could transition to NEED_BANK or WARMUP depending on desired behavior
+    """Handle completion - all items enchanted, proceed to banking."""
+    print("[DONE] Enchanting complete! Looking for banker...")
+    return transition_state(state, now, ENCH_FIND_BANKER), stats
+
+
+def handle_find_banker(
+    state: AppState,
+    stats: Stats,
+    now: float,
+    sct,
+    monitor,
+    ctx: EnchantingContext,
+) -> tuple[AppState, Stats]:
+    """Search for banker NPC in the designated game area."""
+    banker_pos = find_template(
+        sct, monitor,
+        config.GE_BANKER_TEMPLATE,
+        BANKER_REGION,
+        config.BANKER_MATCH_THRESHOLD,
+    )
+    
+    if banker_pos is None:
+        print("[FIND_BANKER] Banker not found - retrying...")
+        random_delay(0.5, 1.0)
+        return state, stats
+    
+    ctx.banker_pos = banker_pos
+    print(f"[FIND_BANKER] Found banker at ({banker_pos.x}, {banker_pos.y})")
+    return transition_state(state, now, ENCH_CLICK_BANKER), stats
+
+
+def handle_click_banker(
+    state: AppState,
+    stats: Stats,
+    now: float,
+    ser,
+    ctx: EnchantingContext,
+) -> tuple[AppState, Stats]:
+    """Click on the banker NPC to open bank interface."""
+    if ctx.banker_pos is None:
+        print("[CLICK_BANKER] ERROR: No banker position saved!")
+        return transition_state(state, now, ENCH_FIND_BANKER), stats
+    
+    print(f"[CLICK_BANKER] Clicking banker at ({ctx.banker_pos.x}, {ctx.banker_pos.y})")
+    click_point(ser, ctx.banker_pos)
+    random_delay(config.BANK_CLICK_DELAY_MIN, config.BANK_CLICK_DELAY_MAX)
+    
+    # Start waiting for bank to open
+    ctx.bank_wait_start = now
+    return transition_state(state, now, ENCH_WAIT_BANK), increment_clicks(stats)
+
+
+def handle_wait_bank(
+    state: AppState,
+    stats: Stats,
+    now: float,
+    sct,
+    monitor,
+    ctx: EnchantingContext,
+) -> tuple[AppState, Stats]:
+    """Wait for bank interface to open."""
+    # TODO: Add bank interface detection template
+    # For now, just wait a fixed time and assume it opened
+    
+    if ctx.bank_wait_start is None:
+        ctx.bank_wait_start = now
+    
+    elapsed = now - ctx.bank_wait_start
+    
+    # Timeout - try clicking banker again
+    if elapsed > config.BANK_WAIT_TIMEOUT:
+        print(f"[WAIT_BANK] Timeout after {elapsed:.1f}s - retrying banker click")
+        ctx.bank_wait_start = None
+        return transition_state(state, now, ENCH_FIND_BANKER), stats
+    
+    # TODO: Replace with actual bank interface detection
+    # For now, assume bank opened after 2 seconds
+    if elapsed >= 2.0:
+        print("[WAIT_BANK] Bank should be open (TODO: add bank interface detection)")
+        # TODO: Transition to deposit/withdraw states
+        # For now, go back to warmup as placeholder
+        print("[WAIT_BANK] Banking logic complete - returning to warmup (TODO: implement deposit/withdraw)")
+        ctx.bank_wait_start = None
+        return transition_state(state, now, WARMUP), stats
+    
     return state, stats
 
 
@@ -371,10 +464,15 @@ def process_enchanting_state(
         return handle_find_level(state, stats, now, ser, sct, monitor, ctx)
     elif state.name == ENCH_LOOP:
         return handle_enchant_loop(state, stats, now, ser, ctx)
-    elif state.name == ENCH_NEED_BANK:
-        return handle_need_bank(state, stats, now)
     elif state.name == ENCH_DONE:
         return handle_done(state, stats, now)
+    # Banking states
+    elif state.name == ENCH_FIND_BANKER:
+        return handle_find_banker(state, stats, now, sct, monitor, ctx)
+    elif state.name == ENCH_CLICK_BANKER:
+        return handle_click_banker(state, stats, now, ser, ctx)
+    elif state.name == ENCH_WAIT_BANK:
+        return handle_wait_bank(state, stats, now, sct, monitor, ctx)
     
     return state, stats
 
@@ -476,8 +574,12 @@ def run_enchanting(
         # Determine sleep interval based on state
         if state.name == WARMUP:
             time.sleep(0.1)  # Fast polling for keyboard in warmup
-        elif state.name in (ENCH_DONE, ENCH_NEED_BANK):
-            time.sleep(1.0)  # Slow polling when waiting
+        elif state.name == ENCH_DONE:
+            time.sleep(0.5)  # Brief pause before banking
+        elif state.name == ENCH_WAIT_BANK:
+            time.sleep(0.2)  # Moderate polling while waiting for bank
+        elif state.name in (ENCH_FIND_BANKER,):
+            time.sleep(0.3)  # Moderate polling while searching for banker
         else:
             time.sleep(0.05)  # Fast during active enchanting
     

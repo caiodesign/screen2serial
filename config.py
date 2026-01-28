@@ -102,6 +102,30 @@ ENCHANT_CLICK_DELAY_MIN = 0.84
 ENCHANT_CLICK_DELAY_MAX = 0.95
 
 # =========================
+# BANKING (Grand Exchange)
+# =========================
+# Banker NPC template
+GE_BANKER_TEMPLATE = "images/npc/ge_banker.png"
+
+# Banker search region calculation:
+# X: 1580px total - 256px inventory = 1324px, divide by 4 = 331px slices
+#    Use slices 2 & 3: from 331px to 993px
+# Y: 1008px total - 208px chat = 800px, divide by 6 = 133px slices
+#    Use slices 2, 3, 4, 5: from 133px to 667px
+BANKER_REGION_X_START = 331
+BANKER_REGION_X_END = 993
+BANKER_REGION_Y_START = 133
+BANKER_REGION_Y_END = 667
+
+# Banker detection threshold
+BANKER_MATCH_THRESHOLD = 0.60
+
+# Banking timing
+BANK_CLICK_DELAY_MIN = 0.8
+BANK_CLICK_DELAY_MAX = 1.2
+BANK_WAIT_TIMEOUT = 5.0  # Max seconds to wait for bank to open
+
+# =========================
 # MOUSE MOVEMENT
 # =========================
 MOUSE_ARRIVAL_TIMEOUT = 3.5  # Max seconds to wait for mouse to reach target
