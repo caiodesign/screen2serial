@@ -108,6 +108,26 @@ def _debug_save_search(sct, monitor, template_path: str, region, state_name: str
     print(f"{'='*60}\n")
 
 
+def _debug_save_screen(sct, monitor, region, name: str):
+    """DEBUG: Save a screen capture without template matching."""
+    debug_dir = "debug_captures"
+    os.makedirs(debug_dir, exist_ok=True)
+    
+    capture_region = {
+        "left": monitor["left"] + region.x_start,
+        "top": monitor["top"] + region.y_start,
+        "width": region.x_end - region.x_start,
+        "height": region.y_end - region.y_start,
+    }
+    screenshot = sct.grab(capture_region)
+    captured = np.array(screenshot)
+    captured_bgr = cv2.cvtColor(captured, cv2.COLOR_BGRA2BGR)
+    
+    path = os.path.join(debug_dir, f"{name}.png")
+    cv2.imwrite(path, captured_bgr)
+    print(f"[DEBUG] Saved screen: {path}")
+
+
 # =========================
 # ENCHANTING STATES
 # =========================
@@ -253,11 +273,20 @@ def handle_open_magic(
     stats: Stats,
     now: float,
     ser,
+    sct,
+    monitor,
 ) -> tuple[AppState, Stats]:
     """Open magic interface by pressing KEY_MAGIC."""
-    print("[OPEN_MAGIC] Opening magic interface...")
+    # DEBUG: Save screen BEFORE pressing F6
+    _debug_save_screen(sct, monitor, INVENTORY_REGION, "OPEN_MAGIC_before_F6")
+    
+    print("[OPEN_MAGIC] Opening magic interface (pressing F6)...")
     open_magic_tab(ser)
     random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
+    
+    # DEBUG: Save screen AFTER pressing F6
+    _debug_save_screen(sct, monitor, INVENTORY_REGION, "OPEN_MAGIC_after_F6")
+    
     return transition_state(state, now, ENCH_FIND_SPELL), stats
 
 
@@ -426,7 +455,7 @@ def process_enchanting_state(
     elif state.name == ENCH_SCAN_ITEMS:
         return handle_scan_items(state, stats, now, sct, monitor, ctx)
     elif state.name == ENCH_OPEN_MAGIC:
-        return handle_open_magic(state, stats, now, ser)
+        return handle_open_magic(state, stats, now, ser, sct, monitor)
     elif state.name == ENCH_FIND_SPELL:
         return handle_find_spell(state, stats, now, ser, sct, monitor)
     elif state.name == ENCH_FIND_LEVEL:
