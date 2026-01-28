@@ -8,10 +8,12 @@ BAUD_RATE = 9600
 # =========================
 # DETECTION REGION (for searching resources)
 # =========================
-REGION_X_START = 0
-REGION_X_END = 1575
-REGION_Y_START = 30
-REGION_Y_END = 827
+# Main area: 1580x1010 with 28px top border.
+# Exclude 256px from left/right, and 208px from top/bottom of main area.
+REGION_X_START = 256
+REGION_X_END = 1324
+REGION_Y_START = 236
+REGION_Y_END = 830
 
 # =========================
 # MATCHING
