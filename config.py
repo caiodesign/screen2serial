@@ -95,7 +95,7 @@ MENU_MATCH_THRESHOLD = 0.80
 
 # Enchanting thresholds
 ENCHANT_ITEM_THRESHOLD = 0.70
-ENCHANT_SPELL_THRESHOLD = 0.70
+ENCHANT_SPELL_THRESHOLD = 0.60  # Lowered for enchant level popup detection
 
 # Enchanting timing (fast: 0.2-0.4s)
 ENCHANT_CLICK_DELAY_MIN = 0.2
