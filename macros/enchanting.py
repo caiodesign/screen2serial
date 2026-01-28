@@ -58,6 +58,57 @@ else:
 
 
 # =========================
+# DEBUG HELPER - Save images to disk for debugging vision
+# =========================
+import os
+import cv2
+import numpy as np
+
+def _debug_save_search(sct, monitor, template_path: str, region, state_name: str):
+    """
+    DEBUG: Save the captured region and template to disk for inspection.
+    This helps verify what's actually being searched vs what debug window shows.
+    """
+    debug_dir = "debug_captures"
+    os.makedirs(debug_dir, exist_ok=True)
+    
+    # Log the parameters
+    print(f"\n{'='*60}")
+    print(f"[DEBUG {state_name}]")
+    print(f"  Template path: {template_path}")
+    print(f"  Region: X={region.x_start}-{region.x_end}, Y={region.y_start}-{region.y_end}")
+    print(f"  Region size: {region.x_end - region.x_start}x{region.y_end - region.y_start}")
+    
+    # Capture the region
+    capture_region = {
+        "left": monitor["left"] + region.x_start,
+        "top": monitor["top"] + region.y_start,
+        "width": region.x_end - region.x_start,
+        "height": region.y_end - region.y_start,
+    }
+    screenshot = sct.grab(capture_region)
+    captured = np.array(screenshot)
+    captured_bgr = cv2.cvtColor(captured, cv2.COLOR_BGRA2BGR)
+    
+    # Save captured region
+    captured_path = os.path.join(debug_dir, f"{state_name}_captured_region.png")
+    cv2.imwrite(captured_path, captured_bgr)
+    print(f"  Saved captured region: {captured_path}")
+    
+    # Load and save the template for comparison
+    if os.path.exists(template_path):
+        template = cv2.imread(template_path)
+        template_save_path = os.path.join(debug_dir, f"{state_name}_template.png")
+        cv2.imwrite(template_save_path, template)
+        print(f"  Saved template copy: {template_save_path}")
+        print(f"  Template size: {template.shape[1]}x{template.shape[0]}")
+    else:
+        print(f"  WARNING: Template not found at {template_path}")
+    
+    print(f"{'='*60}\n")
+
+
+# =========================
 # ENCHANTING STATES
 # =========================
 ENCH_CHECK_INVENTORY = "ench_check_inventory"
@@ -218,7 +269,16 @@ def handle_find_spell(
     sct,
     monitor,
 ) -> tuple[AppState, Stats]:
-    """Find enchant spell in magic interface (first 40px Y)."""
+    """Find enchant spell in magic interface (first 60px Y)."""
+    
+    # DEBUG: Save what we're actually searching for
+    _debug_save_search(
+        sct, monitor,
+        config.ENCHANT_SPELL_TEMPLATE,
+        SPELL_REGION,
+        "FIND_SPELL"
+    )
+    
     spell_pos = find_template(
         sct, monitor,
         config.ENCHANT_SPELL_TEMPLATE,
@@ -227,10 +287,10 @@ def handle_find_spell(
     )
     
     if spell_pos is None:
-        print("[FIND_SPELL] ERROR: Cannot find enchant spell in magic interface!")
+        print("[FIND_SPELL] Spell not found - returning to WARMUP")
         return transition_state(state, now, WARMUP), stats
     
-    print(f"[FIND_SPELL] Found enchant spell at ({spell_pos.x}, {spell_pos.y}) - clicking...")
+    print(f"[FIND_SPELL] Found spell at ({spell_pos.x}, {spell_pos.y}) - clicking and transitioning to FIND_LEVEL...")
     click_point(ser, spell_pos)
     random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
     
@@ -246,14 +306,15 @@ def handle_find_level(
     monitor,
     ctx: EnchantingContext,
 ) -> tuple[AppState, Stats]:
-    """Find enchant level 2 in enchants interface and save position.
+    """Find enchant level 2 in enchants interface and save position."""
     
-    NOTE: After clicking the spell, the level selection popup takes time to appear.
-    This handler will retry for up to 2 seconds before giving up.
-    """
-    # Check how long we've been in this state (for retry timeout)
-    time_in_state = now - state.since
-    MAX_WAIT_TIME = 2.0  # Max seconds to wait for popup to appear
+    # DEBUG: Save what we're actually searching for
+    _debug_save_search(
+        sct, monitor,
+        config.ENCHANT_LEVEL_2_TEMPLATE,
+        INVENTORY_REGION,
+        "FIND_LEVEL"
+    )
     
     level_pos = find_template(
         sct, monitor,
@@ -263,19 +324,13 @@ def handle_find_level(
     )
     
     if level_pos is None:
-        if time_in_state < MAX_WAIT_TIME:
-            # Popup might not have appeared yet - stay in this state and retry
-            print(f"[FIND_LEVEL] Waiting for popup... ({time_in_state:.1f}s)")
-            return state, stats  # Stay in same state, will retry on next iteration
-        else:
-            # Timed out waiting for popup
-            print("[FIND_LEVEL] ERROR: Cannot find level 2 enchant after waiting!")
-            return transition_state(state, now, WARMUP), stats
+        print("[FIND_LEVEL] ERROR: Cannot find level 2 enchant!")
+        return transition_state(state, now, WARMUP), stats
     
     # Save position for reuse in loop
     ctx.enchant_level_pos = level_pos
     
-    print(f"[FIND_LEVEL] Found level 2 enchant at ({level_pos.x}, {level_pos.y}) - clicking...")
+    print(f"[FIND_LEVEL] Found level 2 at ({level_pos.x}, {level_pos.y}) - clicking...")
     click_point(ser, level_pos)
     random_delay(config.ENCHANT_CLICK_DELAY_MIN, config.ENCHANT_CLICK_DELAY_MAX)
     
