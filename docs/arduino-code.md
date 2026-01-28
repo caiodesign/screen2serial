@@ -147,7 +147,7 @@ void loop() {
 
     if (cmd.startsWith("K")) {
       String key = cmd.substring(1);
-      
+
       if (key == "f1") Keyboard.press(KEY_F1);
       else if (key == "f2") Keyboard.press(KEY_F2);
       else if (key == "f3") Keyboard.press(KEY_F3);
@@ -156,7 +156,18 @@ void loop() {
       else if (key == "f6") Keyboard.press(KEY_F6);
       else if (key == "f10") Keyboard.press(KEY_F10);
       else if (key == "esc") Keyboard.press(KEY_ESC);
-      
+      else if (key == "space") Keyboard.press(' ');
+      else if (key == "1") Keyboard.press('1');
+      else if (key == "2") Keyboard.press('2');
+      else if (key == "3") Keyboard.press('3');
+      else if (key == "4") Keyboard.press('4');
+      else if (key == "5") Keyboard.press('5');
+      else if (key == "6") Keyboard.press('6');
+      else if (key == "7") Keyboard.press('7');
+      else if (key == "8") Keyboard.press('8');
+      else if (key == "9") Keyboard.press('9');
+      else if (key == "10") { Keyboard.press('1'); Keyboard.press('0'); }
+
       delay(randRange(30, 60));
       Keyboard.releaseAll();
       return;

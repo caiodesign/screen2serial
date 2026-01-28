@@ -85,13 +85,6 @@ HESITATION_MAX = 0.25   # Maximum delay (low confidence)
 
 Formula: `hesitation = MAX - (confidence_ratio * (MAX - MIN))`
 
-## Inventory Resource Detection
-
-```python
-RESOURCE_TEMPLATE_PATH = "images/resource/wood.png"
-INVENTORY_RESOURCE_THRESHOLD = 0.70
-```
-
 ## Dropping Timing
 
 ```python
@@ -113,39 +106,47 @@ STOP_KEY = "page_down"   # Stop the macro
 Keys sent to the game for tab switching:
 
 ```python
-KEY_COMBAT = "f1"        # Combat options tab
-KEY_SKILLS = "f2"        # Skills tab
-KEY_QUESTS = "f3"        # Quest list tab
-KEY_INVENTORY = "esc"    # Inventory tab
-KEY_EQUIPMENT = "f4"     # Worn equipment tab
-KEY_PRAYER = "f5"        # Prayer tab
-KEY_MAGIC = "f6"         # Magic spellbook tab
-KEY_SETTINGS = "f10"     # Settings tab
+KEY_COMBAT = "f1"           # Combat options tab
+KEY_SKILLS = "f2"           # Skills tab
+KEY_QUESTS = "f3"           # Quest list tab
+KEY_INVENTORY = "esc"       # Inventory tab
+KEY_EQUIPMENT = "f4"        # Worn equipment tab
+KEY_PRAYER = "f5"           # Prayer tab
+KEY_MAGIC = "f6"            # Magic spellbook tab
+KEY_SETTINGS = "f10"        # Settings tab
+KEY_CHAT_CONFIRM = "space"  # Confirm chat message
+KEY_CHAT_CANCEL = "esc"     # Cancel chat message
+KEY_CHAT_OPTION_1 = "1"     # Option 1 in chat menu
+KEY_CHAT_OPTION_2 = "2"     # Option 2 in chat menu
+KEY_CHAT_OPTION_3 = "3"     # Option 3 in chat menu
+KEY_CHAT_OPTION_4 = "4"     # Option 4 in chat menu
+KEY_CHAT_OPTION_5 = "5"     # Option 5 in chat menu
+KEY_CHAT_OPTION_6 = "6"     # Option 6 in chat menu
+KEY_CHAT_OPTION_7 = "7"     # Option 7 in chat menu
+KEY_CHAT_OPTION_8 = "8"     # Option 8 in chat menu
+KEY_CHAT_OPTION_9 = "9"     # Option 9 in chat menu
+KEY_CHAT_OPTION_10 = "10"   # Option 10 in chat menu
 ```
 
-## Enchanting Settings
+## Bank Interface Settings
 
 ```python
-# Templates
-JADE_AMULET_TEMPLATE = "images/item/equip/jade_amulet.png"
-ENCHANT_SPELL_TEMPLATE = "images/magic/magic_jewell_enchant.png"
-ENCHANT_LEVEL_2_TEMPLATE = "images/magic/magic_jewell_enchant_level_2.png"
+BANK_INTERFACE_X_START = 347
+BANK_INTERFACE_X_END = 958
+BANK_INTERFACE_Y_START = 28
+BANK_INTERFACE_Y_END = 827
 
-# Spell scan region (first 40px Y of magic interface)
-SPELL_SCAN_Y_LIMIT = 40
+BANK_CONTROLS_Y_START = 28
+BANK_CONTROLS_Y_END = 100
 
-# Menu icon detection (for inventory state check)
-INVENTORY_ICON_X = 960
-INVENTORY_ICON_Y = 960
-INVENTORY_ICON_SIZE = 36
+BANK_STACK_CROP_TOP_PX = 8
 
-# Thresholds
-ENCHANT_ITEM_THRESHOLD = 0.70
-ENCHANT_SPELL_THRESHOLD = 0.70
+BANKER_MATCH_THRESHOLD = 0.60
+BANK_CONTROLS_MATCH_THRESHOLD = 0.80
 
-# Timing (fast: 0.2-0.4s between clicks)
-ENCHANT_CLICK_DELAY_MIN = 0.2
-ENCHANT_CLICK_DELAY_MAX = 0.4
+BANK_CLICK_DELAY_MIN = 0.8
+BANK_CLICK_DELAY_MAX = 1.2
+BANK_WAIT_TIMEOUT = 1.0
 ```
 
 ## Debug Settings
@@ -156,26 +157,34 @@ DEBUG_DIR = "debug_captures"
 DEBUG_SAVE_MODE = "fail" # "fail" = only save failed matches, "all" = save all
 ```
 
-## Adding Custom Config
+## Macro-Specific Config
 
-For macro-specific settings, add them to `config.py`:
+For macro-specific settings, keep them in the macro file (e.g. `macros/enchanting.py`, `macros/woodcutting.py`):
 
 ```python
-# =========================
-# MY_MACRO SETTINGS
-# =========================
 MY_MACRO_TEMPLATE = "images/my_macro/target.png"
 MY_MACRO_THRESHOLD = 0.75
 MY_MACRO_SCAN_INTERVAL = 0.3
 ```
 
-Then import in your macro:
+Then use these values directly in the macro file.
+
+## Image Templates
 
 ```python
-import config
+TEMPLATE_PATH = "images/resource/tree.png"
+RESOURCE_TEMPLATE_PATH = "images/resource/wood.pn"
 
-# Use settings
-threshold = config.MY_MACRO_THRESHOLD
+JADE_AMULET_TEMPLATE = "images/item/equip/jade_amulet.png"
+ENCHANT_SPELL_TEMPLATE = "images/magic/magic_jewell_enchant.png"
+ENCHANT_LEVEL_2_TEMPLATE = "images/magic/magic_jewell_enchant_level_2.png"
+
+INVENTORY_OPENED_TEMPLATE = "images/menu/inventory-opened.png"
+INVENTORY_CLOSED_TEMPLATE = "images/menu/inventory.png"
+
+GE_BANKER_TEMPLATE = "images/npc/ge_banker.png"
+BANK_CONTROLS_TEMPLATE = "images/ui/bank-controls.png"
+AMULET_OF_CHEM_TEMPLATE = "images/item/equip/amulet_of_chemistry.png"
 ```
 
 ## Environment-Specific Config
