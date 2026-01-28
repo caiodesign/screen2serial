@@ -1,7 +1,7 @@
 # =========================
 # PATHS & SERIAL
 # =========================
-TEMPLATE_PATH = "images/family.png"
+TEMPLATE_PATH = "images/resource/tree.png"
 SERIAL_PORT = "COM5"
 BAUD_RATE = 9600
 
@@ -39,7 +39,7 @@ INVENTORY_Y_START = 652
 INVENTORY_Y_END = 978
 
 # Inventory templates
-RESOURCE_TEMPLATE_PATH = "images/resource.png"
+RESOURCE_TEMPLATE_PATH = "images/resource/wood.pn"
 
 # Inventory matching threshold
 INVENTORY_RESOURCE_THRESHOLD = 0.70  # similarity threshold for resource detection
