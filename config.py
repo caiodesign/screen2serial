@@ -1,17 +1,18 @@
 # =========================
 # PATHS & SERIAL
 # =========================
-TEMPLATE_PATH = "images/resource/tree.png"
 SERIAL_PORT = "COM5"
 BAUD_RATE = 9600
 
 # =========================
 # DETECTION REGION (for searching resources)
 # =========================
-REGION_X_START = 0
-REGION_X_END = 1575
-REGION_Y_START = 30
-REGION_Y_END = 827
+# Main area: 1580x1010 with 28px top border.
+# Exclude 256px from left/right, and 208px from top/bottom of main area.
+REGION_X_START = 256
+REGION_X_END = 1324
+REGION_Y_START = 236
+REGION_Y_END = 830
 
 # =========================
 # MATCHING
@@ -39,12 +40,6 @@ INVENTORY_X_END = 1561
 INVENTORY_Y_START = 652
 INVENTORY_Y_END = 978
 
-# Inventory templates
-RESOURCE_TEMPLATE_PATH = "images/resource/wood.pn"
-
-# Inventory matching threshold
-INVENTORY_RESOURCE_THRESHOLD = 0.70  # similarity threshold for resource detection
-
 # =========================
 # DROPPING
 # =========================
@@ -60,25 +55,26 @@ STOP_KEY = "page_down"   # Key to stop the bot (any state -> warmup)
 # =========================
 # KEYBINDINGS (Game UI Tabs)
 # =========================
-KEY_COMBAT = "f1"        # Combat options tab
-KEY_SKILLS = "f2"        # Skills tab
-KEY_QUESTS = "f3"        # Quest list tab
-KEY_INVENTORY = "esc"    # Inventory tab
-KEY_EQUIPMENT = "f4"     # Worn equipment tab
-KEY_PRAYER = "f5"        # Prayer tab
-KEY_MAGIC = "f6"         # Magic spellbook tab
-KEY_SETTINGS = "f10"     # Settings tab
-
-# =========================
-# ENCHANTING
-# =========================
-# Templates
-JADE_AMULET_TEMPLATE = "images/item/equip/jade_amulet.png"
-ENCHANT_SPELL_TEMPLATE = "images/magic/magic_jewell_enchant.png"
-ENCHANT_LEVEL_2_TEMPLATE = "images/magic/magic_jewell_enchant_level_2.png"
-
-# Spell scan region (first 40px Y of inventory area for finding spells)
-SPELL_SCAN_Y_LIMIT = 60
+KEY_COMBAT = "f1"           # Combat options tab
+KEY_SKILLS = "f2"           # Skills tab
+KEY_QUESTS = "f3"           # Quest list tab
+KEY_INVENTORY = "esc"       # Inventory tab
+KEY_EQUIPMENT = "f4"        # Worn equipment tab
+KEY_PRAYER = "f5"           # Prayer tab
+KEY_MAGIC = "f6"            # Magic spellbook tab
+KEY_SETTINGS = "f10"        # Settings tab
+KEY_CHAT_CONFIRM = 'space'  # Confirm chat message
+KEY_CHAT_CANCEL = 'esc'     # Cancel chat message
+KEY_CHAT_OPTION_1 = '1'     # Option 1 in chat menu
+KEY_CHAT_OPTION_2 = '2'     # Option 2 in chat menu
+KEY_CHAT_OPTION_3 = '3'     # Option 3 in chat menu
+KEY_CHAT_OPTION_4 = '4'     # Option 4 in chat menu
+KEY_CHAT_OPTION_5 = '5'     # Option 5 in chat menu
+KEY_CHAT_OPTION_6 = '6'     # Option 6 in chat menu
+KEY_CHAT_OPTION_7 = '7'     # Option 7 in chat menu
+KEY_CHAT_OPTION_8 = '8'     # Option 8 in chat menu
+KEY_CHAT_OPTION_9 = '9'     # Option 9 in chat menu
+KEY_CHAT_OPTION_10 = '10'   # Option 10 in chat menu
 
 # Menu region (bottom bar where inventory/magic/etc tabs are)
 MENU_REGION_X_START = 1030
@@ -86,20 +82,32 @@ MENU_REGION_X_END = 1580
 MENU_REGION_Y_START = 980
 MENU_REGION_Y_END = 1035
 
-# Menu templates
-INVENTORY_OPENED_TEMPLATE = "images/menu/inventory-opened.png"
-INVENTORY_CLOSED_TEMPLATE = "images/menu/inventory.png"
+# =========================
+# BANKING (Grand Exchange)
+# =========================
+# Bank interface region (full bank UI)
+BANK_INTERFACE_X_START = 347
+BANK_INTERFACE_X_END = 958
+BANK_INTERFACE_Y_START = 28
+BANK_INTERFACE_Y_END = 827
 
-# Menu detection threshold
-MENU_MATCH_THRESHOLD = 0.80
+# Bank controls detection region (top bar)
+BANK_CONTROLS_Y_START = 28
+BANK_CONTROLS_Y_END = 100
 
-# Enchanting thresholds
-ENCHANT_ITEM_THRESHOLD = 0.60
-ENCHANT_SPELL_THRESHOLD = 0.60
+# Stacked item label crop (remove top pixels)
+BANK_STACK_CROP_TOP_PX = 8
 
-# Enchanting timing
-ENCHANT_CLICK_DELAY_MIN = 0.84
-ENCHANT_CLICK_DELAY_MAX = 0.95
+# Banker detection threshold
+BANKER_MATCH_THRESHOLD = 0.60
+
+# Bank controls detection threshold
+BANK_CONTROLS_MATCH_THRESHOLD = 0.80
+
+# Banking timing
+BANK_CLICK_DELAY_MIN = 0.8
+BANK_CLICK_DELAY_MAX = 1.2
+BANK_WAIT_TIMEOUT = 1.0  # Max seconds to wait for bank to open
 
 # =========================
 # MOUSE MOVEMENT
@@ -118,3 +126,20 @@ DEBUG_SAVE_MODE = "fail"  # "fail" or "all"
 # "live" - Windows update on every vision call, non-blocking, press 'q' to close
 # "pause_on_fail" - Only shows window when match fails, pauses until keypress
 DEBUG_WINDOW_MODE = "live"
+
+# =========================
+# IMAGE TEMPLATES
+# =========================
+TEMPLATE_PATH = "images/resource/tree.png"
+RESOURCE_TEMPLATE_PATH = "images/resource/wood.pn"
+
+JADE_AMULET_TEMPLATE = "images/item/equip/jade_amulet.png"
+ENCHANT_SPELL_TEMPLATE = "images/magic/magic_jewell_enchant.png"
+ENCHANT_LEVEL_2_TEMPLATE = "images/magic/magic_jewell_enchant_level_2.png"
+
+INVENTORY_OPENED_TEMPLATE = "images/menu/inventory-opened.png"
+INVENTORY_CLOSED_TEMPLATE = "images/menu/inventory.png"
+
+GE_BANKER_TEMPLATE = "images/npc/ge_banker.png"
+BANK_CONTROLS_TEMPLATE = "images/ui/bank-controls.png"
+AMULET_OF_CHEM_TEMPLATE = "images/item/equip/amulet_of_chemistry.png"

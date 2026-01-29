@@ -72,6 +72,8 @@ ALL_WC_STATES = (WARMUP, WC_SEARCHING, WC_COLLECTING, WC_DROPPING)
 # =========================
 # WOODCUTTING CONFIG
 # =========================
+INVENTORY_RESOURCE_THRESHOLD = 0.70
+
 INVENTORY_REGION = Region(
     x_start=config.INVENTORY_X_START,
     y_start=config.INVENTORY_Y_START,
@@ -188,7 +190,7 @@ def handle_dropping(
         sct, monitor,
         resource_template,
         INVENTORY_REGION,
-        config.INVENTORY_RESOURCE_THRESHOLD,
+        INVENTORY_RESOURCE_THRESHOLD,
     )
     
     if not items:
