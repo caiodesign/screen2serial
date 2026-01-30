@@ -52,12 +52,20 @@ from .capture import (
 from .vision import (
     Region,
     Point,
+    ColorRange,
     find_all_templates,
     sort_by_position,
     get_last_item_bottom_right,
     find_template,
     template_exists,
     count_template,
+    detect_text,
+    # Color detection
+    color_exists,
+    find_by_color,
+    find_all_by_color,
+    find_closest_by_color,
+    count_by_color,
 )
 
 from .vision_debug import (
@@ -128,12 +136,20 @@ __all__ = [
     # Vision
     "Region",
     "Point",
+    "ColorRange",
     "find_all_templates",
     "sort_by_position",
     "get_last_item_bottom_right",
     "find_template",
     "template_exists",
     "count_template",
+    "detect_text",
+    # Color detection
+    "color_exists",
+    "find_by_color",
+    "find_all_by_color",
+    "find_closest_by_color",
+    "count_by_color",
     # Vision Debug (proxy functions with visualization)
     "find_template_debug",
     "find_all_templates_debug",

@@ -8,10 +8,14 @@ Inspired by osrs_basic_botting_functions/functions.py patterns like:
 - image_Rec_clicker()
 - Image_Rec_single_closest()
 - mini_map_bool()
+- Image_to_Text()
+- find_Object()
+- find_Object_closest()
 """
 
 import cv2
 import numpy as np
+import pytesseract
 from dataclasses import dataclass
 from mss import mss
 
@@ -20,6 +24,9 @@ from .capture import load_template, grab_region, preprocess_crop
 
 # Minimum distance (pixels) between two detections to consider them different items
 MIN_DETECTION_DISTANCE = 30
+
+# Type alias for color range: ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+ColorRange = tuple[tuple[int, int, int], tuple[int, int, int]]
 
 
 @dataclass(frozen=True)
@@ -65,6 +72,15 @@ def _capture_region(sct: mss, monitor: dict, region: Region) -> np.ndarray:
         region.x_end, region.y_end,
     )
     return preprocess_crop(frame)
+
+
+def _capture_region_bgr(sct: mss, monitor: dict, region: Region) -> np.ndarray:
+    """Capture a region and return BGR image (for color detection)."""
+    return grab_region(
+        sct, monitor,
+        region.x_start, region.y_start,
+        region.x_end, region.y_end,
+    )
 
 
 def template_exists(
@@ -316,3 +332,284 @@ def get_last_item_bottom_right(items: list[Point]) -> Point | None:
     # Sort by Y descending (bottom first), then X descending (right first)
     sorted_items = sorted(items, key=lambda p: (-p.y, -p.x))
     return sorted_items[0]
+
+
+def detect_text(
+    image: np.ndarray,
+    x_range: tuple[int, int] | None = None,
+    y_range: tuple[int, int] | None = None,
+    preprocess: str | None = None,
+    config: str = "--psm 7",
+) -> str:
+    """
+    Detect text in an image using OCR (pytesseract).
+    
+    Inspired by: Image_to_Text()
+    
+    Args:
+        image: Input image as numpy array (BGR or grayscale)
+        x_range: Optional (x_start, x_end) to crop horizontally
+        y_range: Optional (y_start, y_end) to crop vertically
+        preprocess: Optional preprocessing mode:
+            - "thresh": Binary threshold (good for clean text)
+            - "blur": Median blur (reduces noise)
+            - "adaptive": Adaptive threshold (good for varying lighting)
+            - None: No preprocessing (default)
+        config: Tesseract config string (default: --psm 7 for single line)
+            Common options:
+            - --psm 6: Assume uniform block of text
+            - --psm 7: Treat as single text line
+            - --psm 8: Treat as single word
+            - --psm 13: Raw line (no OSD/script detection)
+    
+    Returns:
+        Detected text string (stripped of whitespace)
+    
+    Note:
+        Requires Tesseract OCR to be installed on the system.
+        macOS: brew install tesseract
+        Windows: https://github.com/UB-Mannheim/tesseract/wiki
+        Linux: apt-get install tesseract-ocr
+    """
+    # Crop image if ranges provided
+    img = image.copy()
+    
+    if y_range is not None:
+        y_start, y_end = y_range
+        img = img[y_start:y_end, :]
+    
+    if x_range is not None:
+        x_start, x_end = x_range
+        img = img[:, x_start:x_end]
+    
+    # Convert to grayscale if needed
+    if len(img.shape) == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = img
+    
+    # Apply preprocessing if specified
+    if preprocess == "thresh":
+        gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    elif preprocess == "blur":
+        gray = cv2.medianBlur(gray, 3)
+    elif preprocess == "adaptive":
+        gray = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 2
+        )
+    
+    # Run OCR
+    text = pytesseract.image_to_string(gray, config=config)
+    
+    return text.strip()
+
+
+# =============================================================================
+# COLOR DETECTION FUNCTIONS
+# =============================================================================
+# These functions detect objects by color range instead of template matching.
+# Useful with RuneLite highlight plugins that mark objects with specific colors.
+
+
+def _find_color_contours(
+    image: np.ndarray,
+    color: ColorRange,
+    min_area: int = 10,
+) -> list[tuple[int, int, int, int, float]]:
+    """
+    Find all contours matching a color range.
+    
+    Args:
+        image: BGR image to search
+        color: Color range ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+        min_area: Minimum contour area to consider valid
+    
+    Returns:
+        List of (x, y, w, h, area) tuples for each contour's bounding rect
+    """
+    lower = np.array(color[0], dtype="uint8")
+    upper = np.array(color[1], dtype="uint8")
+    
+    # Create mask for pixels within color range
+    mask = cv2.inRange(image, lower, upper)
+    
+    # Apply threshold and find contours
+    _, thresh = cv2.threshold(mask, 40, 255, 0)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+    # Filter by area and get bounding rectangles
+    results = []
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area >= min_area:
+            x, y, w, h = cv2.boundingRect(contour)
+            results.append((x, y, w, h, area))
+    
+    return results
+
+
+def color_exists(
+    sct: mss,
+    monitor: dict,
+    color: ColorRange,
+    region: Region,
+    min_area: int = 10,
+) -> bool:
+    """
+    Check if a color exists in region.
+    
+    Inspired by: find_Object() existence check
+    
+    Args:
+        sct: mss screen capturer
+        monitor: Monitor dict from mss
+        color: Color range ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+        region: Region to search in
+        min_area: Minimum contour area to consider valid
+    
+    Returns:
+        True if color found, False otherwise
+    """
+    image = _capture_region_bgr(sct, monitor, region)
+    contours = _find_color_contours(image, color, min_area)
+    return len(contours) > 0
+
+
+def find_by_color(
+    sct: mss,
+    monitor: dict,
+    color: ColorRange,
+    region: Region,
+    min_area: int = 10,
+) -> Point | None:
+    """
+    Find the largest object matching a color in region.
+    
+    Inspired by: find_Object()
+    
+    Args:
+        sct: mss screen capturer
+        monitor: Monitor dict from mss
+        color: Color range ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+        region: Region to search in
+        min_area: Minimum contour area to consider valid
+    
+    Returns:
+        Point with absolute screen coordinates of center, or None if not found
+    """
+    image = _capture_region_bgr(sct, monitor, region)
+    contours = _find_color_contours(image, color, min_area)
+    
+    if not contours:
+        return None
+    
+    # Find largest contour by area
+    largest = max(contours, key=lambda c: c[4])
+    x, y, w, h, area = largest
+    
+    # Calculate center in absolute screen coordinates
+    center_x = region.x_start + x + (w // 2)
+    center_y = region.y_start + y + (h // 2)
+    
+    # Use area as confidence (normalized wouldn't make sense here)
+    return Point(x=center_x, y=center_y, confidence=float(area))
+
+
+def find_all_by_color(
+    sct: mss,
+    monitor: dict,
+    color: ColorRange,
+    region: Region,
+    min_area: int = 10,
+) -> list[Point]:
+    """
+    Find all objects matching a color in region.
+    
+    Inspired by: find_Object_closest() contour iteration
+    
+    Args:
+        sct: mss screen capturer
+        monitor: Monitor dict from mss
+        color: Color range ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+        region: Region to search in
+        min_area: Minimum contour area to consider valid
+    
+    Returns:
+        List of Points with absolute screen coordinates, sorted by area (largest first)
+    """
+    image = _capture_region_bgr(sct, monitor, region)
+    contours = _find_color_contours(image, color, min_area)
+    
+    if not contours:
+        return []
+    
+    # Sort by area descending (largest first)
+    contours.sort(key=lambda c: c[4], reverse=True)
+    
+    points = []
+    for x, y, w, h, area in contours:
+        center_x = region.x_start + x + (w // 2)
+        center_y = region.y_start + y + (h // 2)
+        points.append(Point(x=center_x, y=center_y, confidence=float(area)))
+    
+    return points
+
+
+def find_closest_by_color(
+    sct: mss,
+    monitor: dict,
+    color: ColorRange,
+    region: Region,
+    from_pos: tuple[int, int],
+    min_area: int = 10,
+) -> Point | None:
+    """
+    Find the closest object matching a color to a given position.
+    
+    Inspired by: find_Object_closest()
+    
+    Args:
+        sct: mss screen capturer
+        monitor: Monitor dict from mss
+        color: Color range ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+        region: Region to search in
+        from_pos: (x, y) position to measure distance from
+        min_area: Minimum contour area to consider valid
+    
+    Returns:
+        Point closest to from_pos, or None if no matches found
+    """
+    items = find_all_by_color(sct, monitor, color, region, min_area)
+    
+    if not items:
+        return None
+    
+    def distance_to(point: Point) -> float:
+        return ((point.x - from_pos[0])**2 + (point.y - from_pos[1])**2) ** 0.5
+    
+    return min(items, key=distance_to)
+
+
+def count_by_color(
+    sct: mss,
+    monitor: dict,
+    color: ColorRange,
+    region: Region,
+    min_area: int = 10,
+) -> int:
+    """
+    Count objects matching a color in region.
+    
+    Args:
+        sct: mss screen capturer
+        monitor: Monitor dict from mss
+        color: Color range ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+        region: Region to search in
+        min_area: Minimum contour area to consider valid
+    
+    Returns:
+        Number of contours found
+    """
+    image = _capture_region_bgr(sct, monitor, region)
+    contours = _find_color_contours(image, color, min_area)
+    return len(contours)

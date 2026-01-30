@@ -143,3 +143,28 @@ INVENTORY_CLOSED_TEMPLATE = "images/menu/inventory.png"
 GE_BANKER_TEMPLATE = "images/npc/ge_banker.png"
 BANK_CONTROLS_TEMPLATE = "images/ui/bank-controls.png"
 AMULET_OF_CHEM_TEMPLATE = "images/item/equip/amulet_of_chemistry.png"
+
+# =========================
+# COLOR DETECTION (BGR format)
+# =========================
+# Color presets for RuneLite highlight plugins
+# Each color is a tuple: ((B_lo, G_lo, R_lo), (B_hi, G_hi, R_hi))
+# These work with cv2.inRange() to create masks
+
+# Red highlights (enemies, danger)
+COLOR_RED = ((0, 0, 180), (80, 80, 255))
+
+# Green highlights (friendly, available)
+COLOR_GREEN = ((0, 180, 0), (80, 255, 80))
+
+# Amber/Yellow highlights (warning, caution)
+COLOR_AMBER = ((0, 200, 200), (60, 255, 255))
+
+# Cyan/Blue highlights (clickable objects - trees, rocks, NPCs)
+COLOR_CYAN = ((200, 200, 0), (255, 255, 5))
+
+# Purple/Magenta highlights (ground items, loot)
+COLOR_PURPLE = ((150, 0, 100), (255, 60, 160))
+
+# Minimum contour area to consider valid (filters noise)
+COLOR_MIN_CONTOUR_AREA = 10
