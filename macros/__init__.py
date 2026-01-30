@@ -43,6 +43,12 @@ from .enchanting import (
     ENCH_DONE,
 )
 
+from .agility import (
+    run_agility,
+    create_agility_state,
+    AGI_CLICK,
+)
+
 
 # =========================
 # MACRO REGISTRY
@@ -52,6 +58,7 @@ from .enchanting import (
 MACRO_REGISTRY: dict[str, tuple[Callable, str]] = {
     "woodcutting": (run_woodcutting, "Chop trees and drop logs"),
     "enchanting": (run_enchanting, "Enchant jade amulets"),
+    "agility": (run_agility, "Click fixed point (1425, 132) every 2s"),
 }
 
 
@@ -99,4 +106,8 @@ __all__ = [
     "ENCH_LOOP",
     "ENCH_NEED_BANK",
     "ENCH_DONE",
+    # Agility
+    "run_agility",
+    "create_agility_state",
+    "AGI_CLICK",
 ]
