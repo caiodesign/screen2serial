@@ -489,7 +489,9 @@ def handle_wait_bank(
             random_delay(ENCHANT_CLICK_DELAY_MIN, ENCHANT_CLICK_DELAY_MAX)
             stats = increment_clicks(stats)
         else:
-            print("[WAIT_BANK] Warning: Jade amulet not found in bank")
+            print("[WAIT_BANK] No jade amulets found in bank - returning to warmup")
+            ctx.bank_wait_start = None
+            return transition_state(state, now, WARMUP), stats
 
         ctx.bank_wait_start = None
         return transition_state(state, now, ENCH_CHECK_INVENTORY), stats
