@@ -43,6 +43,16 @@ from .enchanting import (
     ENCH_DONE,
 )
 
+from .herblore import (
+    run_herblore,
+    create_herblore_state,
+    # State constants
+    HERB_CHECK_INVENTORY,
+    HERB_SCAN_ITEMS,
+    HERB_CLEAN_LOOP,
+    HERB_DONE,
+)
+
 
 # =========================
 # MACRO REGISTRY
@@ -52,6 +62,7 @@ from .enchanting import (
 MACRO_REGISTRY: dict[str, tuple[Callable, str]] = {
     "woodcutting": (run_woodcutting, "Chop trees and drop logs"),
     "enchanting": (run_enchanting, "Enchant jade amulets"),
+    "herblore": (run_herblore, "Clean grimy herbs"),
 }
 
 
@@ -99,4 +110,11 @@ __all__ = [
     "ENCH_LOOP",
     "ENCH_NEED_BANK",
     "ENCH_DONE",
+    # Herblore
+    "run_herblore",
+    "create_herblore_state",
+    "HERB_CHECK_INVENTORY",
+    "HERB_SCAN_ITEMS",
+    "HERB_CLEAN_LOOP",
+    "HERB_DONE",
 ]

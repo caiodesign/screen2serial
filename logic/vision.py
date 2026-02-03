@@ -54,13 +54,17 @@ class Point:
     confidence: float = 0.0
 
 
-def _get_template(template) -> np.ndarray:
+def _get_template(template, grayscale: bool = True) -> np.ndarray:
     """
     Get template as numpy array.
     Accepts either a path string or an already-loaded numpy array.
+    
+    Args:
+        template: Path string or numpy array
+        grayscale: If True, load as grayscale. If False, load as BGR color.
     """
     if isinstance(template, str):
-        return load_template(template)
+        return load_template(template, grayscale=grayscale)
     return template
 
 
@@ -89,6 +93,7 @@ def template_exists(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> bool:
     """
     Check if template exists in region.
@@ -101,14 +106,17 @@ def template_exists(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
     
     Returns:
         True if template found, False otherwise
     """
-    tmpl = _get_template(template)
-    gray = _capture_region(sct, monitor, region)
+    capture_fn = _capture_region_bgr if use_color else _capture_region
     
-    result = cv2.matchTemplate(gray, tmpl, cv2.TM_CCOEFF_NORMED)
+    tmpl = _get_template(template, grayscale=not use_color)
+    image = capture_fn(sct, monitor, region)
+    
+    result = cv2.matchTemplate(image, tmpl, cv2.TM_CCOEFF_NORMED)
     _, max_val, _, _ = cv2.minMaxLoc(result)
     
     return max_val >= threshold
@@ -120,6 +128,7 @@ def find_template(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> Point | None:
     """
     Find the best match of template in region.
@@ -132,14 +141,18 @@ def find_template(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
+                   Better for items with distinctive colors (e.g., grimy herbs).
     
     Returns:
         Point with absolute screen coordinates of center, or None if not found
     """
-    tmpl = _get_template(template)
-    gray = _capture_region(sct, monitor, region)
+    capture_fn = _capture_region_bgr if use_color else _capture_region
     
-    result = cv2.matchTemplate(gray, tmpl, cv2.TM_CCOEFF_NORMED)
+    tmpl = _get_template(template, grayscale=not use_color)
+    image = capture_fn(sct, monitor, region)
+    
+    result = cv2.matchTemplate(image, tmpl, cv2.TM_CCOEFF_NORMED)
     _, max_val, _, max_loc = cv2.minMaxLoc(result)
     
     if max_val < threshold:
@@ -159,6 +172,7 @@ def count_template(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> int:
     """
     Count occurrences of template in region.
@@ -171,11 +185,12 @@ def count_template(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
     
     Returns:
         Number of unique matches found
     """
-    items = find_all_templates(sct, monitor, template, region, threshold)
+    items = find_all_templates(sct, monitor, template, region, threshold, use_color)
     return len(items)
 
 
@@ -185,6 +200,7 @@ def find_all_templates(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> list[Point]:
     """
     Find all occurrences of template in region.
@@ -199,14 +215,18 @@ def find_all_templates(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
+                   Better for items with distinctive colors (e.g., grimy herbs).
     
     Returns:
         List of Points with absolute screen coordinates
     """
-    tmpl = _get_template(template)
-    gray = _capture_region(sct, monitor, region)
+    capture_fn = _capture_region_bgr if use_color else _capture_region
     
-    result = cv2.matchTemplate(gray, tmpl, cv2.TM_CCOEFF_NORMED)
+    tmpl = _get_template(template, grayscale=not use_color)
+    image = capture_fn(sct, monitor, region)
+    
+    result = cv2.matchTemplate(image, tmpl, cv2.TM_CCOEFF_NORMED)
     
     # Find all matches above threshold
     locations = np.where(result >= threshold)
@@ -312,6 +332,43 @@ def sort_by_position(
     x_mult = 1 if left_to_right else -1
     
     return sorted(items, key=lambda p: (p.y * y_mult, p.x * x_mult))
+
+
+def sort_by_grid(
+    items: list[Point],
+    row_height: int = 36,
+    top_to_bottom: bool = True,
+    left_to_right: bool = True,
+) -> list[Point]:
+    """
+    Sort points by grid position (row-aware sorting for inventory items).
+    
+    Groups items into rows based on row_height, then sorts within each row.
+    This handles slight Y variations between items in the same row.
+    
+    Args:
+        items: List of Points to sort
+        row_height: Approximate height of each row in pixels (default 36 for OSRS inventory)
+        top_to_bottom: If True, process rows top to bottom
+        left_to_right: If True, process items left to right within each row
+    
+    Returns:
+        Sorted list of Points (row by row, left to right)
+    """
+    if not items:
+        return []
+    
+    # Find the minimum Y to use as reference for row calculation
+    min_y = min(p.y for p in items)
+    
+    # Calculate row index for each item
+    def get_row(p: Point) -> int:
+        return (p.y - min_y) // row_height
+    
+    y_mult = 1 if top_to_bottom else -1
+    x_mult = 1 if left_to_right else -1
+    
+    return sorted(items, key=lambda p: (get_row(p) * y_mult, p.x * x_mult))
 
 
 def get_last_item_bottom_right(items: list[Point]) -> Point | None:

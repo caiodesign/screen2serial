@@ -27,6 +27,7 @@ from .vision import (
     Point,
     _get_template,
     _capture_region,
+    _capture_region_bgr,
 )
 
 
@@ -168,17 +169,21 @@ def _get_window_manager() -> DebugWindowManager:
 # =========================
 
 def _draw_match_result(
-    gray: np.ndarray,
+    image: np.ndarray,
     template: np.ndarray,
     result: Any,
     region: Region,
     threshold: float,
     is_match: bool,
     template_name: str = "unknown",
+    use_color: bool = False,
 ) -> np.ndarray:
     """Draw match result on the captured region image."""
-    # Convert to BGR for colored drawing
-    output = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+    # Convert to BGR for colored drawing if grayscale
+    if len(image.shape) == 2:
+        output = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    else:
+        output = image.copy()
     
     tmpl_h, tmpl_w = template.shape[:2]
     top_left = None
@@ -207,7 +212,7 @@ def _draw_match_result(
         # For bool results (template_exists)
         elif isinstance(result, bool):
             # Need to re-run match to get location for visualization
-            match_result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
+            match_result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
             _, max_val, _, max_loc = cv2.minMaxLoc(match_result)
             top_left = max_loc
             bottom_right = (max_loc[0] + tmpl_w, max_loc[1] + tmpl_h)
@@ -217,7 +222,7 @@ def _draw_match_result(
             confidence = 0.0
     else:
         # No match - still show where best match would be
-        match_result = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
+        match_result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(match_result)
         top_left = max_loc
         bottom_right = (max_loc[0] + tmpl_w, max_loc[1] + tmpl_h)
@@ -230,9 +235,10 @@ def _draw_match_result(
     
     # Add text overlay with match info (compact layout for small regions)
     text_color = (0, 255, 0) if is_match else (0, 0, 255)
+    mode_text = "COLOR" if use_color else "GRAY"
     cv2.putText(
         output,
-        f"T: {template_name}",
+        f"T: {template_name} [{mode_text}]",
         (5, 12),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.35,
@@ -271,29 +277,31 @@ def _draw_match_result(
 
 
 def _show_debug_visualization(
-    gray: np.ndarray,
+    image: np.ndarray,
     tmpl: np.ndarray,
     region: Region,
     threshold: float,
     result: Any,
     is_match: bool,
     template_name: str = "unknown",
+    use_color: bool = False,
 ) -> None:
     """
     Send debug visualization to the background window thread.
     
     Args:
-        gray: Pre-captured grayscale region (same one used for matching)
+        image: Pre-captured region (grayscale or BGR, same one used for matching)
         tmpl: Pre-loaded template (same one used for matching)
         region: Region info for display
         threshold: Threshold used for matching
         result: Result from the vision function
         is_match: Whether the match was successful
         template_name: Name/path of the template for display
+        use_color: Whether color matching was used
     """
     
     # Draw match result on region
-    region_display = _draw_match_result(gray, tmpl, result, region, threshold, is_match, template_name)
+    region_display = _draw_match_result(image, tmpl, result, region, threshold, is_match, template_name, use_color)
     
     # Scale down if too large
     max_display_height = 600
@@ -302,7 +310,10 @@ def _show_debug_visualization(
         region_display = cv2.resize(region_display, None, fx=scale, fy=scale)
     
     # Prepare template display (scale up small templates for visibility)
-    template_display = cv2.cvtColor(tmpl, cv2.COLOR_GRAY2BGR)
+    if len(tmpl.shape) == 2:
+        template_display = cv2.cvtColor(tmpl, cv2.COLOR_GRAY2BGR)
+    else:
+        template_display = tmpl.copy()
     min_display_size = 150
     if tmpl.shape[0] < min_display_size or tmpl.shape[1] < min_display_size:
         scale_factor = max(min_display_size / tmpl.shape[0], min_display_size / tmpl.shape[1])
@@ -313,9 +324,10 @@ def _show_debug_visualization(
         )
     
     # Add template info text
+    mode_text = "COLOR" if use_color else "GRAY"
     cv2.putText(
         template_display,
-        f"Size: {tmpl.shape[1]}x{tmpl.shape[0]}",
+        f"Size: {tmpl.shape[1]}x{tmpl.shape[0]} [{mode_text}]",
         (5, template_display.shape[0] - 10),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.4,
@@ -344,11 +356,14 @@ def with_debug_window(func: Callable) -> Callable:
     exactly what was (approximately) used for matching, not a later frame.
     """
     @functools.wraps(func)
-    def wrapper(sct, monitor, template, region: Region, threshold: float = 0.8, *args, **kwargs):
+    def wrapper(sct, monitor, template, region: Region, threshold: float = 0.8, use_color: bool = False, *args, **kwargs):
         # Capture BEFORE calling the function - this is what we'll display
         # This ensures we show the same (or very close) frame used for matching
-        tmpl = _get_template(template)
-        gray = _capture_region(sct, monitor, region)
+        tmpl = _get_template(template, grayscale=not use_color)
+        if use_color:
+            captured = _capture_region_bgr(sct, monitor, region)
+        else:
+            captured = _capture_region(sct, monitor, region)
         
         # Extract template name for debug display
         if isinstance(template, str):
@@ -360,7 +375,7 @@ def with_debug_window(func: Callable) -> Callable:
         
         # Call the original pure function (it will do its own capture internally,
         # but timing should be nearly identical)
-        result = func(sct, monitor, template, region, threshold, *args, **kwargs)
+        result = func(sct, monitor, template, region, threshold, use_color, *args, **kwargs)
         
         # Determine if it was a match
         if result is None:
@@ -377,7 +392,7 @@ def with_debug_window(func: Callable) -> Callable:
             is_match = result is not None
         
         # Show debug visualization using the pre-captured frame
-        _show_debug_visualization(gray, tmpl, region, threshold, result, is_match, template_name)
+        _show_debug_visualization(captured, tmpl, region, threshold, result, is_match, template_name, use_color)
         
         return result
     

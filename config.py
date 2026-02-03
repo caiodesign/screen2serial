@@ -113,7 +113,7 @@ BANK_WAIT_TIMEOUT = 1.0  # Max seconds to wait for bank to open
 # MOUSE MOVEMENT
 # =========================
 MOUSE_ARRIVAL_TIMEOUT = 3.5  # Max seconds to wait for mouse to reach target
-MOUSE_ARRIVAL_TOLERANCE = 5  # Pixels tolerance for considering mouse "arrived"
+MOUSE_ARRIVAL_TOLERANCE = 12  # Pixels tolerance for considering mouse "arrived"
 
 # =========================
 # DEBUG
