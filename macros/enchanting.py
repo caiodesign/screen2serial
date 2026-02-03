@@ -36,9 +36,12 @@ from logic import (
     # Vision (non-debug)
     Region,
     Point,
+    ColorRange,
     get_last_item_bottom_right,
     load_template,
     crop_template,
+    # Color detection
+    find_by_color,
     # Actions
     click_point,
     random_delay,
@@ -104,6 +107,12 @@ ENCHANT_ITEM_THRESHOLD = 0.60
 ENCHANT_SPELL_THRESHOLD = 0.60
 ENCHANT_CLICK_DELAY_MIN = 0.84
 ENCHANT_CLICK_DELAY_MAX = 0.95
+
+# Banker detection by color (RuneLite NPC highlight)
+# RGBA (0, 255, 255, 255) = Cyan -> BGR format: (255, 255, 0)
+# Using a small tolerance range for anti-aliasing
+BANKER_COLOR: ColorRange = ((250, 250, 0), (255, 255, 5))
+BANKER_COLOR_MIN_AREA = 50  # Minimum pixel area for valid banker detection
 
 INVENTORY_REGION = Region(
     x_start=config.INVENTORY_X_START,
@@ -384,21 +393,21 @@ def handle_find_banker(
     monitor,
     ctx: EnchantingContext,
 ) -> tuple[AppState, Stats]:
-    """Search for banker NPC in the designated game area."""
-    banker_pos = find_template(
+    """Search for banker NPC by color highlight in the designated game area."""
+    banker_pos = find_by_color(
         sct, monitor,
-        config.GE_BANKER_TEMPLATE,
+        BANKER_COLOR,
         BANKER_REGION,
-        config.BANKER_MATCH_THRESHOLD,
+        BANKER_COLOR_MIN_AREA,
     )
     
     if banker_pos is None:
-        print("[FIND_BANKER] Banker not found - retrying...")
+        print("[FIND_BANKER] Banker color not found - retrying...")
         random_delay(0.5, 1.0)
         return state, stats
     
     ctx.banker_pos = banker_pos
-    print(f"[FIND_BANKER] Found banker at ({banker_pos.x}, {banker_pos.y})")
+    print(f"[FIND_BANKER] Found banker by color at ({banker_pos.x}, {banker_pos.y})")
     return transition_state(state, now, ENCH_CLICK_BANKER), stats
 
 
