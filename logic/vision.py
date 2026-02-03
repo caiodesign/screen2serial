@@ -93,6 +93,7 @@ def template_exists(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> bool:
     """
     Check if template exists in region.
@@ -105,14 +106,17 @@ def template_exists(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
     
     Returns:
         True if template found, False otherwise
     """
-    tmpl = _get_template(template)
-    gray = _capture_region(sct, monitor, region)
+    capture_fn = _capture_region_bgr if use_color else _capture_region
     
-    result = cv2.matchTemplate(gray, tmpl, cv2.TM_CCOEFF_NORMED)
+    tmpl = _get_template(template, grayscale=not use_color)
+    image = capture_fn(sct, monitor, region)
+    
+    result = cv2.matchTemplate(image, tmpl, cv2.TM_CCOEFF_NORMED)
     _, max_val, _, _ = cv2.minMaxLoc(result)
     
     return max_val >= threshold
@@ -168,6 +172,7 @@ def count_template(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> int:
     """
     Count occurrences of template in region.
@@ -180,11 +185,12 @@ def count_template(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
     
     Returns:
         Number of unique matches found
     """
-    items = find_all_templates(sct, monitor, template, region, threshold)
+    items = find_all_templates(sct, monitor, template, region, threshold, use_color)
     return len(items)
 
 
