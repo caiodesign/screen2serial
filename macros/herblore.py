@@ -102,8 +102,8 @@ USE_COLOR_MATCHING = True
 HERB_CLICK_DELAY_MIN = 0.18
 HERB_CLICK_DELAY_MAX = 0.28
 
-# Offset to click ABOVE the item image (negative Y = up)
-CLICK_ABOVE_OFFSET_Y = -15
+# Offset from item center (0 = click center, negative = up, positive = down)
+CLICK_OFFSET_Y = 0
 
 # Banker detection by color (RuneLite NPC highlight)
 # RGBA (0, 255, 255, 255) = Cyan -> BGR format: (255, 255, 0)
@@ -253,7 +253,7 @@ def handle_scan_items(
     ctx.last_deposit_pos = sorted_items[-1]
     
     print(f"[SCAN_ITEMS] Found {ctx.items_total} grimy herbs (sorted row by row)")
-    print(f"[SCAN_ITEMS] Will click above each item (offset Y: {CLICK_ABOVE_OFFSET_Y})")
+    print(f"[SCAN_ITEMS] Will click each item (offset Y: {CLICK_OFFSET_Y})")
     return transition_state(state, now, HERB_CLEAN_LOOP), stats
 
 
@@ -277,7 +277,7 @@ def handle_clean_loop(
     item_pos = ctx.item_positions[ctx.current_item_index]
     
     # Calculate click position ABOVE the item
-    click_pos = Point(x=item_pos.x, y=item_pos.y + CLICK_ABOVE_OFFSET_Y)
+    click_pos = Point(x=item_pos.x, y=item_pos.y + CLICK_OFFSET_Y)
     
     remaining = len(ctx.item_positions) - ctx.current_item_index
     print(f"[CLEAN_LOOP] Cleaning herb {ctx.current_item_index + 1}/{ctx.items_total} at ({click_pos.x}, {click_pos.y})")
@@ -529,7 +529,7 @@ def run_herblore(
     print("  SCREEN2SERIAL BOT - HERBLORE")
     print("=" * 50)
     print(f"Inventory: ({config.INVENTORY_X_START}, {config.INVENTORY_Y_START}) to ({config.INVENTORY_X_END}, {config.INVENTORY_Y_END})")
-    print(f"Click offset Y: {CLICK_ABOVE_OFFSET_Y} (clicking above items)")
+    print(f"Click offset Y: {CLICK_OFFSET_Y} (0 = center of item)")
     print("")
     print("Controls:")
     print("  Page Up   = Start herb cleaning")
