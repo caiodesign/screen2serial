@@ -42,9 +42,9 @@ def on_mouse_click(x, y, button, pressed):
         return
     
     # Check for mouse4 (x1) / mouse5 (x2) buttons
-    if button == mouse.Button.x1:
+    if button == mouse.Button.x2:
         _should_start = True
-    elif button == mouse.Button.x2:
+    elif button == mouse.Button.x1:
         _should_stop = True
 
 
