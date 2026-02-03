@@ -334,6 +334,43 @@ def sort_by_position(
     return sorted(items, key=lambda p: (p.y * y_mult, p.x * x_mult))
 
 
+def sort_by_grid(
+    items: list[Point],
+    row_height: int = 36,
+    top_to_bottom: bool = True,
+    left_to_right: bool = True,
+) -> list[Point]:
+    """
+    Sort points by grid position (row-aware sorting for inventory items).
+    
+    Groups items into rows based on row_height, then sorts within each row.
+    This handles slight Y variations between items in the same row.
+    
+    Args:
+        items: List of Points to sort
+        row_height: Approximate height of each row in pixels (default 36 for OSRS inventory)
+        top_to_bottom: If True, process rows top to bottom
+        left_to_right: If True, process items left to right within each row
+    
+    Returns:
+        Sorted list of Points (row by row, left to right)
+    """
+    if not items:
+        return []
+    
+    # Find the minimum Y to use as reference for row calculation
+    min_y = min(p.y for p in items)
+    
+    # Calculate row index for each item
+    def get_row(p: Point) -> int:
+        return (p.y - min_y) // row_height
+    
+    y_mult = 1 if top_to_bottom else -1
+    x_mult = 1 if left_to_right else -1
+    
+    return sorted(items, key=lambda p: (get_row(p) * y_mult, p.x * x_mult))
+
+
 def get_last_item_bottom_right(items: list[Point]) -> Point | None:
     """
     Get the last item using bottom-right priority.

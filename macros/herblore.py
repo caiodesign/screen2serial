@@ -38,6 +38,7 @@ from logic import (
     ColorRange,
     load_template,
     crop_template,
+    sort_by_grid,
     # Color detection
     find_by_color,
     # Actions
@@ -240,15 +241,18 @@ def handle_scan_items(
         print("[SCAN_ITEMS] No grimy herbs found - looking for banker...")
         return transition_state(state, now, HERB_FIND_BANKER), stats
     
+    # Sort items by grid position (row by row, left to right)
+    sorted_items = sort_by_grid(items)
+    
     # Store all item positions - we will click above each one
-    ctx.item_positions = list(items)
+    ctx.item_positions = sorted_items
     ctx.current_item_index = 0
-    ctx.items_total = len(items)
+    ctx.items_total = len(sorted_items)
     
     # Save the last position for depositing later
-    ctx.last_deposit_pos = items[-1]
+    ctx.last_deposit_pos = sorted_items[-1]
     
-    print(f"[SCAN_ITEMS] Found {ctx.items_total} grimy herbs")
+    print(f"[SCAN_ITEMS] Found {ctx.items_total} grimy herbs (sorted row by row)")
     print(f"[SCAN_ITEMS] Will click above each item (offset Y: {CLICK_ABOVE_OFFSET_Y})")
     return transition_state(state, now, HERB_CLEAN_LOOP), stats
 
