@@ -40,7 +40,7 @@ from logic import (
     crop_template,
     sort_by_grid,
     # Color detection
-    find_by_color,
+    find_closest_by_color,
     # Actions
     click_point,
     random_delay,
@@ -306,11 +306,18 @@ def handle_find_banker(
     monitor,
     ctx: HerbloreContext,
 ) -> tuple[AppState, Stats]:
-    """Search for banker NPC by color highlight in the designated game area."""
-    banker_pos = find_by_color(
+    """Search for banker NPC by color highlight, closest to screen center (character position)."""
+    # Screen center (where the character is)
+    screen_center = (
+        (config.REGION_X_START + config.REGION_X_END) // 2,
+        (config.REGION_Y_START + config.REGION_Y_END) // 2,
+    )
+    
+    banker_pos = find_closest_by_color(
         sct, monitor,
         BANKER_COLOR,
         BANKER_REGION,
+        screen_center,
         BANKER_COLOR_MIN_AREA,
     )
     
@@ -320,7 +327,7 @@ def handle_find_banker(
         return state, stats
     
     ctx.banker_pos = banker_pos
-    print(f"[FIND_BANKER] Found banker by color at ({banker_pos.x}, {banker_pos.y})")
+    print(f"[FIND_BANKER] Found banker closest to center at ({banker_pos.x}, {banker_pos.y})")
     return transition_state(state, now, HERB_CLICK_BANKER), stats
 
 
