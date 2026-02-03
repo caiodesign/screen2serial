@@ -16,7 +16,7 @@ Usage:
 import argparse
 import sys
 
-from pynput import keyboard
+from pynput import mouse
 
 import config
 from logic import open_serial
@@ -33,18 +33,19 @@ _should_start = False
 _should_stop = False
 
 
-def on_key_press(key):
-    """Handle keyboard press events."""
+def on_mouse_click(x, y, button, pressed):
+    """Handle mouse click events."""
     global _should_start, _should_stop
     
-    try:
-        # Check for Page Up/Page Down keys
-        if key == keyboard.Key.page_up:
-            _should_start = True
-        elif key == keyboard.Key.page_down:
-            _should_stop = True
-    except AttributeError:
-        pass
+    # Only handle button press, not release
+    if not pressed:
+        return
+    
+    # Check for mouse4 (x1) / mouse5 (x2) buttons
+    if button == mouse.Button.x2:
+        _should_start = True
+    elif button == mouse.Button.x1:
+        _should_stop = True
 
 
 def check_keyboard_flags() -> tuple[bool, bool]:
@@ -139,8 +140,8 @@ def main() -> None:
     # Initialize serial connection
     ser = open_serial(config.SERIAL_PORT, config.BAUD_RATE)
     
-    # Start keyboard listener
-    listener = keyboard.Listener(on_press=on_key_press)
+    # Start mouse listener (mouse4=start, mouse5=stop)
+    listener = mouse.Listener(on_click=on_mouse_click)
     listener.start()
     
     try:
