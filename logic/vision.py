@@ -54,13 +54,17 @@ class Point:
     confidence: float = 0.0
 
 
-def _get_template(template) -> np.ndarray:
+def _get_template(template, grayscale: bool = True) -> np.ndarray:
     """
     Get template as numpy array.
     Accepts either a path string or an already-loaded numpy array.
+    
+    Args:
+        template: Path string or numpy array
+        grayscale: If True, load as grayscale. If False, load as BGR color.
     """
     if isinstance(template, str):
-        return load_template(template)
+        return load_template(template, grayscale=grayscale)
     return template
 
 
@@ -120,6 +124,7 @@ def find_template(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> Point | None:
     """
     Find the best match of template in region.
@@ -132,14 +137,18 @@ def find_template(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
+                   Better for items with distinctive colors (e.g., grimy herbs).
     
     Returns:
         Point with absolute screen coordinates of center, or None if not found
     """
-    tmpl = _get_template(template)
-    gray = _capture_region(sct, monitor, region)
+    capture_fn = _capture_region_bgr if use_color else _capture_region
     
-    result = cv2.matchTemplate(gray, tmpl, cv2.TM_CCOEFF_NORMED)
+    tmpl = _get_template(template, grayscale=not use_color)
+    image = capture_fn(sct, monitor, region)
+    
+    result = cv2.matchTemplate(image, tmpl, cv2.TM_CCOEFF_NORMED)
     _, max_val, _, max_loc = cv2.minMaxLoc(result)
     
     if max_val < threshold:
@@ -185,6 +194,7 @@ def find_all_templates(
     template,
     region: Region,
     threshold: float = 0.8,
+    use_color: bool = False,
 ) -> list[Point]:
     """
     Find all occurrences of template in region.
@@ -199,14 +209,18 @@ def find_all_templates(
         template: Template image path (str) or numpy array
         region: Region to search in
         threshold: Match threshold (0.0-1.0)
+        use_color: If True, use BGR color matching instead of grayscale.
+                   Better for items with distinctive colors (e.g., grimy herbs).
     
     Returns:
         List of Points with absolute screen coordinates
     """
-    tmpl = _get_template(template)
-    gray = _capture_region(sct, monitor, region)
+    capture_fn = _capture_region_bgr if use_color else _capture_region
     
-    result = cv2.matchTemplate(gray, tmpl, cv2.TM_CCOEFF_NORMED)
+    tmpl = _get_template(template, grayscale=not use_color)
+    image = capture_fn(sct, monitor, region)
+    
+    result = cv2.matchTemplate(image, tmpl, cv2.TM_CCOEFF_NORMED)
     
     # Find all matches above threshold
     locations = np.where(result >= threshold)

@@ -93,6 +93,10 @@ ALL_HERB_STATES = (
 MENU_MATCH_THRESHOLD = 0.80
 HERB_ITEM_THRESHOLD = 0.60
 
+# Use color-based matching for grimy herbs (better detection of brownish/dark tint)
+# Grayscale matching loses the color distinction between grimy and clean herbs
+USE_COLOR_MATCHING = True
+
 # Reduced delays for faster clicking
 HERB_CLICK_DELAY_MIN = 0.18
 HERB_CLICK_DELAY_MAX = 0.28
@@ -229,6 +233,7 @@ def handle_scan_items(
         GRIMY_HERB_TEMPLATE,
         INVENTORY_REGION,
         HERB_ITEM_THRESHOLD,
+        use_color=USE_COLOR_MATCHING,
     )
     
     if not items:
@@ -381,7 +386,7 @@ def handle_wait_bank(
         # Withdraw grimy herbs from bank (scan entire bank interface)
         if ctx.bank_herb_template is None:
             ctx.bank_herb_template = crop_template(
-                load_template(GRIMY_HERB_TEMPLATE),
+                load_template(GRIMY_HERB_TEMPLATE, grayscale=not USE_COLOR_MATCHING),
                 top=config.BANK_STACK_CROP_TOP_PX,
             )
 
@@ -390,6 +395,7 @@ def handle_wait_bank(
             ctx.bank_herb_template,
             BANK_INTERFACE_REGION,
             HERB_ITEM_THRESHOLD,
+            use_color=USE_COLOR_MATCHING,
         )
 
         if herb_pos is not None:
@@ -506,7 +512,7 @@ def run_herblore(
 
     # Preload cropped herb template for bank matching
     ctx.bank_herb_template = crop_template(
-        load_template(GRIMY_HERB_TEMPLATE),
+        load_template(GRIMY_HERB_TEMPLATE, grayscale=not USE_COLOR_MATCHING),
         top=config.BANK_STACK_CROP_TOP_PX,
     )
     

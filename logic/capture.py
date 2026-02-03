@@ -15,20 +15,34 @@ class MatchResult:
     max_loc: tuple[int, int]  # Location of best match
 
 
-def load_template(path: str) -> np.ndarray:
-    """Load template image without blur (matching opencv_tutorials approach)."""
+def load_template(path: str, grayscale: bool = True) -> np.ndarray:
+    """Load template image without blur (matching opencv_tutorials approach).
+    
+    Args:
+        path: Path to the template image
+        grayscale: If True, convert to grayscale. If False, keep BGR color.
+    """
     template = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     if template is None:
         raise RuntimeError(f"Template not found: {path}")
 
-    # Convert to grayscale if needed (handles RGBA/RGB/BGR)
-    if len(template.shape) == 3:
-        if template.shape[2] == 4:
-            # RGBA - convert to grayscale
-            template = cv2.cvtColor(template, cv2.COLOR_BGRA2GRAY)
-        else:
-            # BGR - convert to grayscale
-            template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+    if grayscale:
+        # Convert to grayscale if needed (handles RGBA/RGB/BGR)
+        if len(template.shape) == 3:
+            if template.shape[2] == 4:
+                # RGBA - convert to grayscale
+                template = cv2.cvtColor(template, cv2.COLOR_BGRA2GRAY)
+            else:
+                # BGR - convert to grayscale
+                template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+    else:
+        # Keep color but ensure BGR format
+        if len(template.shape) == 3 and template.shape[2] == 4:
+            # RGBA - convert to BGR
+            template = cv2.cvtColor(template, cv2.COLOR_BGRA2BGR)
+        elif len(template.shape) == 2:
+            # Grayscale - convert to BGR
+            template = cv2.cvtColor(template, cv2.COLOR_GRAY2BGR)
     return template
 
 
