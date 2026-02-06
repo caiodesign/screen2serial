@@ -113,10 +113,11 @@ INVENTORY_SLOTS: list[Point] = _build_inventory_slots()
 class ThievingContext:
     """Mutable context for thieving macro."""
     food_picked: int  # Number of food items picked this cycle
+    debug: bool  # Verbose logging when True
 
     @classmethod
-    def create(cls) -> "ThievingContext":
-        return cls(food_picked=0)
+    def create(cls, debug: bool = False) -> "ThievingContext":
+        return cls(food_picked=0, debug=debug)
 
     def reset(self) -> None:
         """Reset context between cycles or on stop."""
@@ -163,10 +164,17 @@ def handle_pick_food(
     )
 
     if pos is None:
+        if ctx.debug:
+            print(f"[PICK_FOOD][DEBUG] No yellow color in region "
+                  f"({PICK_REGION.x_start},{PICK_REGION.y_start})-"
+                  f"({PICK_REGION.x_end},{PICK_REGION.y_end}), "
+                  f"color range BGR {FOOD_COLOR}, min_area={FOOD_COLOR_MIN_AREA}")
         print("[PICK_FOOD] No yellow (food) found – retrying...")
         random_delay(0.4, 0.7)
         return state, stats
 
+    if ctx.debug:
+        print(f"[PICK_FOOD][DEBUG] Color match at ({pos.x}, {pos.y}) confidence={pos.confidence:.0f}px")
     print(f"[PICK_FOOD] Clicking food at ({pos.x}, {pos.y}) ({ctx.food_picked + 1}/{FOOD_SLOTS_TO_FILL})")
     click_point(ser, pos)
     ctx.food_picked += 1
@@ -234,12 +242,12 @@ def print_status(state: AppState, stats: Stats, ctx: ThievingContext) -> None:
     print("=" * 40)
 
 
-def create_thieving_state() -> tuple[AppState, Stats, ThievingContext]:
+def create_thieving_state(debug: bool = False) -> tuple[AppState, Stats, ThievingContext]:
     """Create initial state, stats, and context for thieving."""
     return (
         make_initial_state(WARMUP),
         make_initial_stats(ALL_THIEF_STATES),
-        ThievingContext.create(),
+        ThievingContext.create(debug=debug),
     )
 
 
@@ -255,7 +263,7 @@ def run_thieving(
     shift-clicks all 28 slots to drop, then repeats.
     """
     sct, monitor = create_screen_capturer()
-    state, stats, ctx = create_thieving_state()
+    state, stats, ctx = create_thieving_state(debug=debug)
 
     last_loop_time = time.time()
     last_status_print = 0
@@ -263,6 +271,8 @@ def run_thieving(
     print("")
     print("=" * 50)
     print("  SCREEN2SERIAL BOT - THIEVING")
+    if debug:
+        print("  [DEBUG MODE ENABLED]")
     print("=" * 50)
     print(f"Pick region: ({PICK_REGION.x_start}, {PICK_REGION.y_start}) to ({PICK_REGION.x_end}, {PICK_REGION.y_end})")
     print(f"Inventory: 4 cols x 7 rows, drop after {FOOD_SLOTS_TO_FILL} food")
