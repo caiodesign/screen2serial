@@ -3,13 +3,13 @@ Thieving macro for screen2serial bot.
 
 State machine:
     WARMUP -> PICK_FOOD (find yellow, click, delay 2.8–3.1s, loop) ->
-    when 16 food collected (4x4) -> DROP_INVENTORY (shift+click each of 4x7 slots) ->
+    when 28 food collected (full inventory 4x7) -> DROP_INVENTORY (shift+click all 28 slots) ->
     back to PICK_FOOD (reset).
 
     Any state -> (PageDown) -> WARMUP
 
-Collects food by clicking yellow highlights; after 16 picks, shift-clicks
-each inventory slot (4 columns x 7 rows) to drop/use, then repeats.
+Collects food by clicking yellow highlights; after filling all 28 inventory
+slots, shift-clicks each slot (4 columns x 7 rows) to drop, then repeats.
 """
 
 import time
@@ -62,12 +62,10 @@ FOOD_COLOR_MIN_AREA = 30
 PICK_DELAY_MIN = 2.8
 PICK_DELAY_MAX = 3.1
 
-# Food count before we run drop inventory (4 columns x 4 rows = 16)
-FOOD_SLOTS_TO_FILL = 4 * 4  # 16
-
-# Inventory grid: 4 columns x 7 rows
+# Inventory grid: 4 columns x 7 rows = 28 slots
 INVENTORY_COLS = 4
 INVENTORY_ROWS = 7
+FOOD_SLOTS_TO_FILL = INVENTORY_COLS * INVENTORY_ROWS  # 28
 
 # Search region (game area, not inventory)
 PICK_REGION = Region(
@@ -92,7 +90,7 @@ SCREEN_CENTER = (
 
 
 def _build_inventory_slots() -> list[Point]:
-    """Build center Point for each inventory slot (4 cols x 7 rows), row by row."""
+    """Build center Point for all 28 inventory slots (4 cols x 7 rows), row by row."""
     x_start = INVENTORY_REGION.x_start
     y_start = INVENTORY_REGION.y_start
     slot_w = (INVENTORY_REGION.x_end - x_start) // INVENTORY_COLS
@@ -107,7 +105,7 @@ def _build_inventory_slots() -> list[Point]:
     ]
 
 
-# Precomputed once at import – the inventory grid never changes
+# All 28 inventory slot centers, precomputed once
 INVENTORY_SLOTS: list[Point] = _build_inventory_slots()
 
 
@@ -151,7 +149,7 @@ def handle_pick_food(
     monitor,
     ctx: ThievingContext,
 ) -> tuple[AppState, Stats]:
-    """Find yellow (food) highlight, click it, delay 2.8–3.1s, then loop. After 16 picks go to drop."""
+    """Find yellow (food) highlight, click it, delay 2.8–3.1s, then loop. After 28 picks go to drop."""
     if ctx.food_picked >= FOOD_SLOTS_TO_FILL:
         print(f"[PICK_FOOD] Collected {ctx.food_picked} food – switching to drop inventory")
         return transition_state(state, now, THIEF_DROP_INVENTORY), stats
@@ -177,21 +175,21 @@ def handle_pick_food(
     return state, increment_actions(stats)
 
 
-def handle_drop_inventory(
+def handle_drop_food(
     state: AppState,
     stats: Stats,
     now: float,
     ser,
     ctx: ThievingContext,
 ) -> tuple[AppState, Stats]:
-    """Shift+left click each inventory slot (4x7), then reset and go back to picking."""
-    print(f"[DROP_INVENTORY] Shift-clicking {len(INVENTORY_SLOTS)} inventory slots...")
+    """Shift+left click all 28 inventory slots to drop food, then resume picking."""
+    print(f"[DROP_FOOD] Shift-clicking {len(INVENTORY_SLOTS)} inventory slots to drop...")
     dropped = drop_items(
         ser,
         INVENTORY_SLOTS,
         click_delay=config.DROP_CLICK_DELAY,
     )
-    print(f"[DROP_INVENTORY] Done. Dropped {dropped} slots. Resetting pick count.")
+    print(f"[DROP_FOOD] Dropped {dropped} items. Resetting pick count.")
     ctx.reset()
     return transition_state(state, now, THIEF_PICK_FOOD), increment_cycles(stats)
 
@@ -218,7 +216,7 @@ def process_thieving_state(
     elif state.name == THIEF_PICK_FOOD:
         return handle_pick_food(state, stats, now, ser, sct, monitor, ctx)
     elif state.name == THIEF_DROP_INVENTORY:
-        return handle_drop_inventory(state, stats, now, ser, ctx)
+        return handle_drop_food(state, stats, now, ser, ctx)
 
     return state, stats
 
@@ -253,8 +251,8 @@ def run_thieving(
     """
     Run the thieving macro loop.
 
-    Collects food by clicking yellow highlights; after 16 picks,
-    shift-clicks each inventory slot (4x7), then repeats.
+    Collects food by clicking yellow highlights; after 28 picks (full inventory),
+    shift-clicks all 28 slots to drop, then repeats.
     """
     sct, monitor = create_screen_capturer()
     state, stats, ctx = create_thieving_state()
