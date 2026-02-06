@@ -53,6 +53,13 @@ from .herblore import (
     HERB_DONE,
 )
 
+from .thieving import (
+    run_thieving,
+    create_thieving_state,
+    THIEF_PICK_FOOD,
+    THIEF_DROP_INVENTORY,
+)
+
 
 # =========================
 # MACRO REGISTRY
@@ -63,6 +70,7 @@ MACRO_REGISTRY: dict[str, tuple[Callable, str]] = {
     "woodcutting": (run_woodcutting, "Chop trees and drop logs"),
     "enchanting": (run_enchanting, "Enchant jade amulets"),
     "herblore": (run_herblore, "Clean grimy herbs"),
+    "thieving": (run_thieving, "Pick food (yellow) and drop inventory"),
 }
 
 
@@ -117,4 +125,9 @@ __all__ = [
     "HERB_SCAN_ITEMS",
     "HERB_CLEAN_LOOP",
     "HERB_DONE",
+    # Thieving
+    "run_thieving",
+    "create_thieving_state",
+    "THIEF_PICK_FOOD",
+    "THIEF_DROP_INVENTORY",
 ]
