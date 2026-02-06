@@ -59,8 +59,8 @@ FOOD_COLOR: ColorRange = ((0, 250, 250), (15, 255, 255))
 FOOD_COLOR_MIN_AREA = 30
 
 # Delay between each pick (one food per click)
-PICK_DELAY_MIN = 2.8
-PICK_DELAY_MAX = 3.1
+PICK_DELAY_MIN = 3.22
+PICK_DELAY_MAX = 3.45
 
 # Inventory grid: 4 columns x 7 rows = 28 slots
 INVENTORY_COLS = 4
