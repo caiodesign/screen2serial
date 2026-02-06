@@ -25,6 +25,7 @@ from logic import (
     make_initial_stats,
     transition_state,
     accumulate_state_time,
+    increment_clicks,
     increment_actions,
     increment_cycles,
     create_screen_capturer,
@@ -83,6 +84,32 @@ INVENTORY_REGION = Region(
     y_end=config.INVENTORY_Y_END,
 )
 
+# Precomputed constants (avoid recalculating every tick)
+SCREEN_CENTER = (
+    (config.REGION_X_START + config.REGION_X_END) // 2,
+    (config.REGION_Y_START + config.REGION_Y_END) // 2,
+)
+
+
+def _build_inventory_slots() -> list[Point]:
+    """Build center Point for each inventory slot (4 cols x 7 rows), row by row."""
+    x_start = INVENTORY_REGION.x_start
+    y_start = INVENTORY_REGION.y_start
+    slot_w = (INVENTORY_REGION.x_end - x_start) // INVENTORY_COLS
+    slot_h = (INVENTORY_REGION.y_end - y_start) // INVENTORY_ROWS
+    return [
+        Point(
+            x=x_start + col * slot_w + slot_w // 2,
+            y=y_start + row * slot_h + slot_h // 2,
+        )
+        for row in range(INVENTORY_ROWS)
+        for col in range(INVENTORY_COLS)
+    ]
+
+
+# Precomputed once at import – the inventory grid never changes
+INVENTORY_SLOTS: list[Point] = _build_inventory_slots()
+
 
 @dataclass
 class ThievingContext:
@@ -93,22 +120,9 @@ class ThievingContext:
     def create(cls) -> "ThievingContext":
         return cls(food_picked=0)
 
-
-def _inventory_slot_centers() -> list[Point]:
-    """Return center Point for each inventory slot (4 cols x 7 rows), row by row."""
-    x_start = INVENTORY_REGION.x_start
-    y_start = INVENTORY_REGION.y_start
-    w = INVENTORY_REGION.x_end - x_start
-    h = INVENTORY_REGION.y_end - y_start
-    slot_w = w // INVENTORY_COLS
-    slot_h = h // INVENTORY_ROWS
-    points: list[Point] = []
-    for row in range(INVENTORY_ROWS):
-        for col in range(INVENTORY_COLS):
-            cx = x_start + col * slot_w + slot_w // 2
-            cy = y_start + row * slot_h + slot_h // 2
-            points.append(Point(x=cx, y=cy))
-    return points
+    def reset(self) -> None:
+        """Reset context between cycles or on stop."""
+        self.food_picked = 0
 
 
 # =========================
@@ -142,15 +156,11 @@ def handle_pick_food(
         print(f"[PICK_FOOD] Collected {ctx.food_picked} food – switching to drop inventory")
         return transition_state(state, now, THIEF_DROP_INVENTORY), stats
 
-    screen_center = (
-        (PICK_REGION.x_start + PICK_REGION.x_end) // 2,
-        (PICK_REGION.y_start + PICK_REGION.y_end) // 2,
-    )
     pos = find_closest_by_color(
         sct, monitor,
         FOOD_COLOR,
         PICK_REGION,
-        screen_center,
+        SCREEN_CENTER,
         FOOD_COLOR_MIN_AREA,
     )
 
@@ -162,6 +172,7 @@ def handle_pick_food(
     print(f"[PICK_FOOD] Clicking food at ({pos.x}, {pos.y}) ({ctx.food_picked + 1}/{FOOD_SLOTS_TO_FILL})")
     click_point(ser, pos)
     ctx.food_picked += 1
+    stats = increment_clicks(stats)
     random_delay(PICK_DELAY_MIN, PICK_DELAY_MAX)
     return state, increment_actions(stats)
 
@@ -174,15 +185,14 @@ def handle_drop_inventory(
     ctx: ThievingContext,
 ) -> tuple[AppState, Stats]:
     """Shift+left click each inventory slot (4x7), then reset and go back to picking."""
-    slots = _inventory_slot_centers()
-    print(f"[DROP_INVENTORY] Shift-clicking {len(slots)} inventory slots...")
+    print(f"[DROP_INVENTORY] Shift-clicking {len(INVENTORY_SLOTS)} inventory slots...")
     dropped = drop_items(
         ser,
-        slots,
+        INVENTORY_SLOTS,
         click_delay=config.DROP_CLICK_DELAY,
     )
     print(f"[DROP_INVENTORY] Done. Dropped {dropped} slots. Resetting pick count.")
-    ctx.food_picked = 0
+    ctx.reset()
     return transition_state(state, now, THIEF_PICK_FOOD), increment_cycles(stats)
 
 
@@ -200,6 +210,7 @@ def process_thieving_state(
     """Process thieving state machine."""
     if should_stop:
         print("[STOP] Returning to warmup")
+        ctx.reset()
         return transition_state(state, now, WARMUP), stats
 
     if state.name == WARMUP:

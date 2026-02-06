@@ -10,6 +10,7 @@ This is a thin orchestrator that:
 Usage:
     python main.py --macro woodcutting
     python main.py --macro enchanting
+    python main.py --macro thieving
     python main.py --list  # List available macros
 """
 
@@ -79,6 +80,7 @@ def parse_args() -> argparse.Namespace:
 Examples:
     python main.py --macro woodcutting
     python main.py --macro enchanting --debug
+    python main.py --macro thieving
     python main.py --list
         """,
     )
